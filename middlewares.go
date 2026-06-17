@@ -2,46 +2,42 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
-
-	"github.com/redis/go-redis/v9"
+	"time"
 )
 
 func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenCookie, err := r.Cookie("token")
 		if err != nil {
-			http.Error(w, "No token", http.StatusUnauthorized)
-			return
-		}
-		token := tokenCookie.Value
-
-		// get user ID from redis
-		userIdStr, err := env.rdb.Get(r.Context(), token).Result()
-		if err != nil {
-			if errors.Is(err, redis.Nil) {
-				deleteTokenCookie := deleteTokenCookie()
-				http.SetCookie(w, &deleteTokenCookie)
-				http.Error(w, "Token has expired or is invalid", http.StatusUnauthorized)
-			} else if errors.Is(err, context.Canceled) {
+			if errors.Is(err, http.ErrNoCookie) {
+				http.Error(w, "No token", http.StatusUnauthorized)
 			} else {
 				macrosInternalServerError(w, err)
 			}
 			return
 		}
-		userId, err := strconv.ParseInt(userIdStr, 10, 64)
+
+		userId, expiration, err := getTokenData(env.dbTokens, tokenCookie.Value)
 		if err != nil {
-			macrosInternalServerError(w, err)
+			if errors.Is(err, sql.ErrNoRows) {
+				cookie := setTokenCookie("", -1)
+				http.SetCookie(w, &cookie)
+				http.Error(w, "Token not found", http.StatusUnauthorized)
+			} else {
+				macrosInternalServerError(w, err)
+			}
 			return
 		}
 
 		// check if user is banned
 		{
 			var banned bool
-			row := env.db.QueryRow(r.Context(),
+			row := env.db.QueryRow(
 				"SELECT banned FROM users WHERE id = $1", userId)
 			err := row.Scan(&banned)
 			if err != nil {
@@ -60,11 +56,22 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 			}
 		}
 
-		// {
-		// 	updateTokenExpInRedis(env.rdb, r.Context(), token)
-		// 	tokenCookie := setTokenCookie(token)
-		// 	http.SetCookie(w, &tokenCookie)
-		// }
+		// handle expiration
+		var secondsUntilExp int64 = expiration - time.Now().Unix()
+		if secondsUntilExp < 0 { // minus means its past expiration
+			cookie := setTokenCookie("", -1)
+			http.SetCookie(w, &cookie)
+			http.Error(w, "Token has expired", http.StatusUnauthorized)
+			return
+		} else if secondsUntilExp < (60*60*24)*(TokenLifetimeDays-1) { // if it's been at least 1 day since token exp was updated
+			err := updateTokenExpiration(env.dbTokens, tokenCookie.Value)
+			if err != nil {
+				macrosInternalServerError(w, err)
+				return
+			}
+			cookie := setTokenCookie(tokenCookie.Value, TokenLifetimeSeconds)
+			http.SetCookie(w, &cookie)
+		}
 
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), UserIdKeyType{}, userId)))
 	})
@@ -86,7 +93,7 @@ func (env *Handler) IsServerOwnerMw(next http.Handler) http.Handler {
 		}
 
 		q := `SELECT EXISTS(SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2) as result`
-		row := env.db.QueryRow(r.Context(), q, serverId, userId)
+		row := env.db.QueryRow(q, serverId, userId)
 
 		var isOwner bool
 		err = row.Scan(&isOwner)
@@ -132,7 +139,7 @@ func (env *Handler) HasServerAccessMw(next http.Handler) http.Handler {
 			SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
 		) as result`
 
-		row := env.db.QueryRow(r.Context(), q, serverId, userId)
+		row := env.db.QueryRow(q, serverId, userId)
 
 		var hasAccess bool
 		err = row.Scan(&hasAccess)
@@ -177,7 +184,7 @@ func (env *Handler) IsChannelOwnerMw(next http.Handler) http.Handler {
 			JOIN servers ON channels.server_id = servers.id
 			WHERE channels.id = $1 AND servers.owner_id = $2
 		) as result`
-		row := env.db.QueryRow(r.Context(), q, channelId, userId)
+		row := env.db.QueryRow(q, channelId, userId)
 
 		var isOwner bool
 		err = row.Scan(&isOwner)
@@ -224,7 +231,7 @@ func (env *Handler) HasChannelAccessMw(next http.Handler) http.Handler {
 			WHERE c.id = $1
 			AND (s.owner_id = $2 OR m.member_id IS NOT NULL)
 		) as result`
-		row := env.db.QueryRow(r.Context(), q, channelId, userId)
+		row := env.db.QueryRow(q, channelId, userId)
 
 		var hasAccess bool
 		err = row.Scan(&hasAccess)

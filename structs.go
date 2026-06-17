@@ -4,18 +4,15 @@ import (
 	"context"
 
 	"github.com/bwmarrin/snowflake"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/nats-io/nats.go"
-	"github.com/redis/go-redis/v9"
+	"github.com/jmoiron/sqlx"
 )
 
 type Handler struct {
-	db     *pgxpool.Pool
-	rdb    *redis.Client
-	nats   *nats.Conn
-	idGen  *snowflake.Node
-	sm     *SessionManager
-	cancel context.CancelFunc
+	db       *sqlx.DB
+	dbTokens *sqlx.DB
+	idGen    *snowflake.Node
+	sm       *SessionManager
+	cancel   context.CancelFunc
 }
 
 // type Username string

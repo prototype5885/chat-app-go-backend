@@ -11,15 +11,14 @@ import (
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
-	"github.com/nats-io/nats.go"
-	"github.com/redis/go-redis/v9"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
 	// handle shutdowns/panics gracefully
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, closeServer := context.WithCancel(context.Background())
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
@@ -28,7 +27,7 @@ func main() {
 		sig := <-signalChan
 		fmt.Println()
 		log.Printf("Received signal (%v)\n", sig)
-		cancel()
+		closeServer()
 	}()
 
 	// load env
@@ -44,82 +43,25 @@ func main() {
 		port = "1848"
 	}
 
-	postgresUrl := os.Getenv("POSTGRES_URL")
-	if postgresUrl == "" {
-		log.Fatal("POSTGRES_URL is missing from env or empty")
-	}
-
-	redisAddress := os.Getenv("REDIS_ADDRESS")
-	if redisAddress == "" {
-		log.Fatal("REDIS_ADDRESS is missing from env or empty")
-	}
-
-	redisPassword := os.Getenv("REDIS_PASSWORD")
-
-	natsUrl := os.Getenv("NATS_URL")
-	if natsUrl == "" {
-		log.Fatal("NATS_URL is missing from env or empty")
-	}
-
-	// PostgreSQL
-	db, err := pgxpool.New(context.Background(), postgresUrl)
+	db, dbTokens, err := initDatabase()
 	if err != nil {
-		log.Println("Database connection pool create error:")
+		log.Println("SQlite setup error")
 		log.Fatal(err)
 	}
 
-	err = db.Ping(context.Background())
-	if err != nil {
-		log.Println("Database ping error:")
-		log.Fatal(err)
-	}
-	log.Println("Connected to PostgreSQL!")
+	go databaseCleanerService(closeServer, db, dbTokens)
 
-	err = initDatabaseCommands(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Redis
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     redisAddress,
-		Password: redisPassword,
-		DB:       0,
-		Protocol: 2,
-	})
-
-	err = rdb.Ping(context.Background()).Err()
-	if err != nil {
-		log.Println("Redis ping error:")
-		log.Fatal(err)
-	}
-	log.Println("Connected to Redis!")
-
-	// NATS
-	nats, err := nats.Connect(natsUrl)
-	if err != nil {
-		log.Println("NATS connect error:")
-		log.Fatal(err)
-	}
-	log.Println("Connected to NATS!")
-
-	// look for a not yet claimed snowflake node id in redis
 	snowflake.Epoch = 1772841600
-	nodeId, err := claimSnowflakeNodeId(rdb, cancel)
-	if err != nil {
-		log.Println("Snowflake node ID claim error:")
-		log.Fatal(err)
-	}
-	idGen, err := snowflake.NewNode(nodeId)
+	idGen, err := snowflake.NewNode(0)
 	if err != nil {
 		log.Println("Snowflake ID generator setup error:")
 		log.Fatal(err)
 	}
 
-	sm := &SessionManager{db: db, rdb: rdb, ctx: ctx}
+	sm := &SessionManager{db: db, ctx: ctx}
 
 	// this is used to inject dependencies into handlers
-	h := Handler{db: db, rdb: rdb, nats: nats, idGen: idGen, sm: sm, cancel: cancel}
+	h := Handler{db: db, dbTokens: dbTokens, idGen: idGen, sm: sm, cancel: closeServer}
 
 	// setup http server
 	router := chi.NewRouter()
@@ -171,7 +113,7 @@ func main() {
 		if err != nil {
 			log.Println("Server error:")
 			log.Println(err)
-			cancel()
+			closeServer()
 		}
 	}()
 
@@ -179,31 +121,18 @@ func main() {
 	<-ctx.Done()
 	log.Println("Shutting down server...")
 
-	// delete the snowflake node id claim from redis
-	if nodeId != -1 {
-		err = removeSnowflakeNodeIdClaim(nodeId, rdb)
+	log.Println("Closing sqlite connections...")
+	{
+		err := db.Close()
 		if err != nil {
-			log.Println("Error releasing snowflake node ID claim from redis:")
+			log.Println(err)
+		}
+	}
+	{
+		err := dbTokens.Close()
+		if err != nil {
 			log.Println(err)
 		}
 	}
 
-	// close down connections
-	if rdb != nil {
-		log.Println("Closing redis connection...")
-		err = rdb.Close()
-		if err != nil {
-			log.Println("Error closing redis connection:")
-			log.Println(err)
-		}
-	}
-	if db != nil {
-		log.Println("Closing postgres connection pool...")
-		db.Close()
-	}
-
-	if nats != nil {
-		log.Println("Closing NATS connection...")
-		nats.Close()
-	}
 }

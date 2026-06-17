@@ -4,8 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
+	"github.com/jmoiron/sqlx"
 )
 
 type SessionManager struct {
@@ -15,9 +14,7 @@ type SessionManager struct {
 	subs map[int64]map[int64]struct{}
 	// sessionChans  map[string]chan EventMessage   // sessionID -> Go channel (replaces eventBus)
 
-	db  *pgxpool.Pool
-	rdb *redis.Client
-	// redisPubSub *redis.PubSub
+	db  *sqlx.DB
 	ctx context.Context
 }
 

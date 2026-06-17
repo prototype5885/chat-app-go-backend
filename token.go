@@ -1,51 +1,46 @@
 package main
 
 import (
-	"context"
 	"net/http"
 	"time"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/jmoiron/sqlx"
 )
 
-// days in miliseconds
 const TokenLifetimeDays = 28
 const TokenLifetimeSeconds = 60 * 60 * 24 * TokenLifetimeDays
-const TokenLifetimeRedis = time.Duration(TokenLifetimeSeconds) * time.Second
 
-func insertTokenInRedis(rdb *redis.Client, ctx context.Context, token string, userId int64) error {
-	err := rdb.Set(ctx, token, userId, TokenLifetimeRedis).Err()
+func insertToken(db *sqlx.DB, token string, userId int64) error {
+	expTimestamp := time.Now().Unix() + TokenLifetimeSeconds
+	_, err := db.Exec("INSERT INTO tokens (token, user_id, expiration) VALUES (?, ?, ?)", token, userId, expTimestamp)
 	return err
 }
 
-func deleteTokenFromRedis(rdb *redis.Client, ctx context.Context, token string) error {
-	err := rdb.Del(ctx, token).Err()
+func getTokenData(db *sqlx.DB, token string) (int64, int64, error) {
+	row := db.QueryRow("SELECT user_id, expiration FROM tokens WHERE token = ?", token)
+	var userId int64
+	var expiration int64
+	err := row.Scan(&userId, &expiration)
+	return userId, expiration, err
+}
+
+func deleteToken(db *sqlx.DB, token string) error {
+	_, err := db.Exec("DELETE FROM tokens WHERE token = ?", token)
 	return err
 }
 
-func updateTokenExpInRedis(rdb *redis.Client, ctx context.Context, token string) error {
-	err := rdb.Expire(ctx, token, TokenLifetimeRedis).Err()
+func updateTokenExpiration(db *sqlx.DB, token string) error {
+	expTimestamp := time.Now().Unix() + TokenLifetimeSeconds
+	_, err := db.Exec("UPDATE tokens SET expiration = ? WHERE token = ?", expTimestamp, token)
 	return err
 }
 
-func setTokenCookie(token string) http.Cookie {
+func setTokenCookie(value string, maxAge int) http.Cookie {
 	return http.Cookie{
 		Name:     "token",
-		Value:    token,
+		Value:    value,
 		Path:     "/",
-		MaxAge:   TokenLifetimeSeconds,
-		HttpOnly: true,
-		Secure:   false,
-		SameSite: http.SameSiteLaxMode,
-	}
-}
-
-func deleteTokenCookie() http.Cookie {
-	return http.Cookie{
-		Name:     "token",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
+		MaxAge:   maxAge,
 		HttpOnly: true,
 		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
