@@ -2,9 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"sync"
-
-	"github.com/jmoiron/sqlx"
 )
 
 type SessionManager struct {
@@ -14,7 +13,7 @@ type SessionManager struct {
 	subs map[int64]map[int64]struct{}
 	// sessionChans  map[string]chan EventMessage   // sessionID -> Go channel (replaces eventBus)
 
-	db  *sqlx.DB
+	db  *sql.DB
 	ctx context.Context
 }
 

@@ -2,14 +2,13 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"time"
-
-	"github.com/jmoiron/sqlx"
 )
 
 // service that cleans expired tokens and vacuums both database files
-func databaseCleanerService(closeServer context.CancelFunc, db *sqlx.DB, dbTokens *sqlx.DB) {
+func databaseCleanerService(closeServer context.CancelFunc, db *sql.DB, dbTokens *sql.DB) {
 	time.Sleep(10 * time.Minute)
 
 	const hoursInterval = 4

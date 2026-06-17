@@ -2,21 +2,20 @@ package main
 
 import (
 	"chatapp/modules/validator"
+	"database/sql"
 	"fmt"
 	"os"
 	"path"
-
-	"github.com/jmoiron/sqlx"
 )
 
-func initDatabase() (*sqlx.DB, *sqlx.DB, error) {
+func initDatabase() (*sql.DB, *sql.DB, error) {
 	const databaseFolder = "database"
 	err := os.MkdirAll(databaseFolder, os.ModePerm)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	db, err := sqlx.Open("sqlite3", path.Join(databaseFolder, "database.db"))
+	db, err := sql.Open("sqlite3", path.Join(databaseFolder, "database.db"))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -117,7 +116,7 @@ func initDatabase() (*sqlx.DB, *sqlx.DB, error) {
 	}
 
 	// separate sqlite file for tokens
-	dbTokens, err := sqlx.Open("sqlite3", path.Join(databaseFolder, "tokens.db"))
+	dbTokens, err := sql.Open("sqlite3", path.Join(databaseFolder, "tokens.db"))
 	if err != nil {
 		return nil, nil, err
 	}

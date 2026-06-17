@@ -37,8 +37,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 		// check if user is banned
 		{
 			var banned bool
-			row := env.db.QueryRow(
-				"SELECT banned FROM users WHERE id = $1", userId)
+			row := env.db.QueryRow("SELECT banned FROM users WHERE id = ?", userId)
 			err := row.Scan(&banned)
 			if err != nil {
 				switch {
@@ -92,7 +91,7 @@ func (env *Handler) IsServerOwnerMw(next http.Handler) http.Handler {
 			return
 		}
 
-		q := `SELECT EXISTS(SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2) as result`
+		q := `SELECT EXISTS(SELECT 1 FROM servers WHERE id = ? AND owner_id = ?) as result`
 		row := env.db.QueryRow(q, serverId, userId)
 
 		var isOwner bool
@@ -134,12 +133,12 @@ func (env *Handler) HasServerAccessMw(next http.Handler) http.Handler {
 
 		q := `
 		SELECT EXISTS (
-			SELECT 1 FROM server_members WHERE server_id = $1 AND member_id = $2
+			SELECT 1 FROM server_members WHERE server_id = ? AND member_id = ?
 			UNION
-			SELECT 1 FROM servers WHERE id = $1 AND owner_id = $2
+			SELECT 1 FROM servers WHERE id = ? AND owner_id = ?
 		) as result`
 
-		row := env.db.QueryRow(q, serverId, userId)
+		row := env.db.QueryRow(q, serverId, userId, serverId, userId)
 
 		var hasAccess bool
 		err = row.Scan(&hasAccess)
@@ -182,7 +181,7 @@ func (env *Handler) IsChannelOwnerMw(next http.Handler) http.Handler {
 		SELECT EXISTS (
 			SELECT 1 FROM channels
 			JOIN servers ON channels.server_id = servers.id
-			WHERE channels.id = $1 AND servers.owner_id = $2
+			WHERE channels.id = ? AND servers.owner_id = ?
 		) as result`
 		row := env.db.QueryRow(q, channelId, userId)
 
@@ -227,11 +226,11 @@ func (env *Handler) HasChannelAccessMw(next http.Handler) http.Handler {
 		SELECT EXISTS (
 			SELECT 1 FROM channels c
 			JOIN servers s ON c.server_id = s.id
-			LEFT JOIN server_members m ON s.id = m.server_id AND m.member_id = $2
-			WHERE c.id = $1
-			AND (s.owner_id = $2 OR m.member_id IS NOT NULL)
+			LEFT JOIN server_members m ON s.id = m.server_id AND m.member_id = ?
+			WHERE c.id = ?
+			AND (s.owner_id = ? OR m.member_id IS NOT NULL)
 		) as result`
-		row := env.db.QueryRow(q, channelId, userId)
+		row := env.db.QueryRow(q, userId, channelId, userId)
 
 		var hasAccess bool
 		err = row.Scan(&hasAccess)

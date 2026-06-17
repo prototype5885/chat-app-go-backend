@@ -2,14 +2,14 @@ package main
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/bwmarrin/snowflake"
-	"github.com/jmoiron/sqlx"
 )
 
 type Handler struct {
-	db       *sqlx.DB
-	dbTokens *sqlx.DB
+	db       *sql.DB
+	dbTokens *sql.DB
 	idGen    *snowflake.Node
 	sm       *SessionManager
 	cancel   context.CancelFunc
@@ -28,36 +28,36 @@ type Handler struct {
 // }
 
 type UserDatabase struct {
-	ID           string  `db:"id" json:"id"`
-	Username     string  `db:"username" json:"username"`
-	DisplayName  string  `db:"display_name" json:"display_name"`
-	Picture      *string `db:"picture" json:"picture,omitempty"`
-	Banned       bool    `db:"banned" json:"banned"`
-	CustomStatus *string `db:"custom_status" json:"custom_status,omitempty"`
+	Id           string  `json:"id"`
+	Username     string  `json:"username"`
+	DisplayName  string  `json:"display_name"`
+	Picture      *string `json:"picture,omitempty"`
+	Banned       bool    `json:"banned"`
+	CustomStatus *string `json:"custom_status,omitempty"`
 }
 
 type ServerDatabase struct {
-	Id      string  `db:"id" json:"id"`
-	OwnerID string  `db:"owner_id" json:"owner_id"`
-	Name    string  `db:"name" json:"name"`
-	Picture *string `db:"picture" json:"picture,omitempty"`
-	Banner  *string `db:"banner" json:"banner,omitempty"`
-	Roles   *string `db:"roles" json:"roles,omitempty"`
+	Id      string  `json:"id"`
+	OwnerID string  `json:"owner_id"`
+	Name    string  `json:"name"`
+	Picture *string `json:"picture,omitempty"`
+	Banner  *string `json:"banner,omitempty"`
+	Roles   *string `json:"roles,omitempty"`
 }
 
 type ChannelDatabase struct {
-	Id       string `db:"id" json:"id"`
-	ServerId string `db:"server_id" json:"server_id"`
-	Name     string `db:"name" json:"name"`
+	Id       string `json:"id"`
+	ServerId string `json:"server_id"`
+	Name     string `json:"name"`
 }
 
 type MessageDatabase struct {
-	Id              string  `db:"id" json:"id"`
-	SenderId        string  `db:"sender_id" json:"sender_id"`
-	ChannelId       string  `db:"channel_id" json:"channel_id"`
-	Message         string  `db:"message" json:"message"`
-	AttachmentCount *int    `db:"attachment_count" json:"attachment_count,omitempty"`
-	Edited          *string `db:"edited" json:"edited,omitempty"`
+	Id              string  `json:"id"`
+	SenderId        string  `json:"sender_id"`
+	ChannelId       string  `json:"channel_id"`
+	Message         string  `json:"message"`
+	AttachmentCount *int    `json:"attachment_count,omitempty"`
+	Edited          *string `json:"edited,omitempty"`
 }
 
 type CreateServerReq struct {
@@ -66,27 +66,27 @@ type CreateServerReq struct {
 
 // DTOs
 type UserResponse struct {
-	ID           string  `db:"id" json:"id"`
-	Username     string  `db:"username" json:"username"`
-	DisplayName  string  `db:"display_name" json:"display_name"`
-	Picture      *string `db:"picture" json:"picture,omitempty"`
-	CustomStatus *string `db:"custom_status" json:"custom_status,omitempty"`
+	Id           string  `json:"id"`
+	Username     string  `json:"username"`
+	DisplayName  string  `json:"display_name"`
+	Picture      *string `json:"picture,omitempty"`
+	CustomStatus *string `json:"custom_status,omitempty"`
 	Online       bool    `json:"online"`
 }
 
 type Attachment struct {
-	Name string `db:"name" json:"name"`
-	File string `db:"file" json:"file"`
+	Name string `json:"name"`
+	File string `json:"file"`
 }
 
 type MessageResponse struct {
-	Id              string       `db:"id" json:"id"`
-	SenderId        string       `db:"sender_id" json:"sender_id"`
-	ChannelId       string       `db:"channel_id" json:"channel_id"`
-	Message         string       `db:"message" json:"message"`
-	AttachmentCount *int         `db:"attachment_count" json:"-"`
-	Edited          *string      `db:"edited" json:"edited,omitempty"`
-	DisplayName     string       `db:"display_name" json:"display_name"`
-	Picture         *string      `db:"picture" json:"picture,omitempty"`
-	Attachments     []Attachment `db:"attachments" json:"attachments"`
+	Id              string       `json:"id"`
+	SenderId        string       `json:"sender_id"`
+	ChannelId       string       `json:"channel_id"`
+	Message         string       `json:"message"`
+	AttachmentCount *int         `json:"-"`
+	Edited          *string      `json:"edited,omitempty"`
+	DisplayName     string       `json:"display_name"`
+	Picture         *string      `json:"picture,omitempty"`
+	Attachments     []Attachment `json:"attachments"`
 }

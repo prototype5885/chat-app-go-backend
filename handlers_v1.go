@@ -2,7 +2,6 @@ package main
 
 import (
 	"chatapp/modules/validator"
-	"context"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -117,8 +116,8 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 
 	_, err = env.db.Exec(`
 		INSERT INTO users (id, username, display_name, password) 
-		VALUES ($1, $2, $2, $3)`,
-		env.idGen.Generate().Int64(), username, hashedPassword,
+		VALUES (?, ?, ?, ?)`,
+		env.idGen.Generate().Int64(), username, username, hashedPassword,
 	)
 	if err != nil {
 		var sqliteErr sqlite3.Error
@@ -156,14 +155,16 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type UserRecord struct {
-		Id       int64  `db:"id"`
-		Password string `db:"password"`
+		Id       int64
+		Password string
 	}
 
-	record := UserRecord{}
-	err = env.db.Get(&record,
-		"SELECT id, password FROM users WHERE username = $1", username,
+	row := env.db.QueryRow(
+		"SELECT id, password FROM users WHERE username = ?", username,
 	)
+
+	var record UserRecord
+	err = row.Scan(&record.Id, &record.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -217,14 +218,9 @@ func (env *Handler) logout(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
-	_, err := env.db.Exec("DELETE FROM users WHERE id = $1", userId)
+	_, err := env.db.Exec("DELETE FROM users WHERE id = ?", userId)
 	if err != nil {
-		switch {
-		case errors.Is(err, context.Canceled):
-			break
-		default:
-			macrosInternalServerError(w, err)
-		}
+		macrosInternalServerError(w, err)
 		return
 	}
 }
@@ -237,12 +233,11 @@ func (env *Handler) getUserID(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) getUserInfo(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
-	user := UserResponse{}
-	err := env.db.Get(&user, `
-		SELECT id, username, display_name, picture, custom_status
-		FROM users
-		WHERE id = $1
-	`, userId)
+	const q = "SELECT id, username, display_name, picture, custom_status FROM users WHERE id = ?"
+	row := env.db.QueryRow(q, userId)
+
+	var user UserResponse
+	err := row.Scan(&user.Id, &user.Username, &user.DisplayName, &user.Picture, &user.CustomStatus)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -286,17 +281,9 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	{
 		if displayName != "" {
-			_, err := tx.Exec(
-				"UPDATE users SET display_name = $1 WHERE id = $2",
-				displayName, userId,
-			)
+			_, err := tx.Exec("UPDATE users SET display_name = ? WHERE id = ?", displayName, userId)
 			if err != nil {
-				switch {
-				case errors.Is(err, context.Canceled):
-					break
-				default:
-					macrosInternalServerError(w, err)
-				}
+				macrosInternalServerError(w, err)
 				return
 			}
 		}
@@ -361,49 +348,36 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	_, err = tx.Exec(
-		"INSERT INTO servers (id, owner_id, name) VALUES ($1, $2, $3)",
+		"INSERT INTO servers (id, owner_id, name) VALUES (?, ?, ?)",
 		serverId, userId, p.Name,
 	)
 	if err != nil {
-		switch {
-		case errors.Is(err, context.Canceled):
-			break
-		default:
-			macrosInternalServerError(w, err)
-		}
+		macrosInternalServerError(w, err)
 		return
 	}
 
 	_, err = tx.Exec(
-		"INSERT INTO channels (id, server_id, name) VALUES ($1, $2, $3)",
+		"INSERT INTO channels (id, server_id, name) VALUES (?, ?, ?)",
 		channelId, serverId, "Default channel",
 	)
 	if err != nil {
-		switch {
-		case errors.Is(err, context.Canceled):
-			break
-		default:
-			macrosInternalServerError(w, err)
-		}
+		macrosInternalServerError(w, err)
 		return
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		switch {
-		case errors.Is(err, context.Canceled):
-			break
-		default:
-			macrosInternalServerError(w, err)
-		}
+		macrosInternalServerError(w, err)
 		return
 	}
 
-	server := ServerDatabase{}
-	err = env.db.Get(&server, `
+	row := env.db.QueryRow(`
 		SELECT id, owner_id, name, picture, banner, roles 
-		FROM servers WHERE id = $1
+		FROM servers WHERE id = ?
 	`, serverId)
+
+	var server ServerDatabase
+	err = row.Scan(&server.Id, &server.OwnerID, &server.Name, &server.Picture, &server.Banner, &server.Roles)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -436,7 +410,7 @@ func (env *Handler) getServers(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	servers := []ServerDatabase{}
+	var servers []ServerDatabase
 	for rows.Next() {
 		var server ServerDatabase
 		err := rows.Scan(&server.Id, &server.OwnerID, &server.Name, &server.Picture, &server.Banner, &server.Roles)
@@ -458,11 +432,25 @@ func (env *Handler) getServers(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
 	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
 
-	const q = "SELECT * FROM channels WHERE server_id = $1"
+	const q = "SELECT id, server_id, name FROM channels WHERE server_id = ?"
 
-	channels := []ChannelDatabase{}
-	err := env.db.Select(&channels, q, serverId)
+	rows, err := env.db.Query(q, serverId)
 	if err != nil {
+		macrosInternalServerError(w, err)
+		return
+	}
+
+	var channels []ChannelDatabase
+	for rows.Next() {
+		var channel ChannelDatabase
+		err := rows.Scan(&channel.Id, &channel.ServerId, &channel.Name)
+		if err != nil {
+			macrosInternalServerError(w, err)
+			return
+		}
+		channels = append(channels, channel)
+	}
+	if rows.Err() != nil {
 		macrosInternalServerError(w, err)
 		return
 	}
@@ -492,13 +480,17 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 
 	messageId := env.idGen.Generate().Int64()
 
-	tx := env.db.MustBegin()
+	tx, err := env.db.Begin()
+	if err != nil {
+		macrosInternalServerError(w, err)
+		return
+	}
 	defer tx.Rollback()
 
 	{
 		_, err := tx.Exec(`
 			INSERT INTO messages (id, sender_id, channel_id, message, attachment_count)
-			VALUES ($1, $2, $3, $4, $5)`,
+			VALUES (?, ?, ?, ?, ?)`,
 			messageId, userId, channelId, message, attachmentsCount,
 		)
 		if err != nil {
@@ -511,22 +503,21 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		// TODO insert attachments
 	}
 
-	err := tx.Commit()
+	err = tx.Commit()
 	if err != nil {
 		macrosInternalServerError(w, err)
 		return
 	}
 
-	type UserRecord struct {
-		DisplayName string  `db:"display_name" json:"display_name"`
-		Picture     *string `db:"picture" json:"picture,omitempty"`
-	}
-
-	userRecord := UserRecord{}
-	err = env.db.Get(&userRecord, "SELECT display_name, picture FROM users WHERE id = $1", userId)
-	if err != nil {
-		macrosInternalServerError(w, err)
-		return
+	var displayName string
+	var picture *string
+	{
+		row := env.db.QueryRow("SELECT display_name, picture FROM users WHERE id = ?", userId)
+		err := row.Scan(&displayName, &picture)
+		if err != nil {
+			macrosInternalServerError(w, err)
+			return
+		}
 	}
 
 	// messageResponse := MessageResponse{
@@ -534,8 +525,8 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 	// 	SenderId:    fmt.Sprintf("%d", userId),
 	// 	ChannelId:   fmt.Sprintf("%d", channelId),
 	// 	Message:     message,
-	// 	DisplayName: userRecord.DisplayName,
-	// 	Picture:     userRecord.Picture,
+	// 	DisplayName: displayName,
+	// 	Picture:     picture,
 	// 	Attachments: []Attachment{},
 	// }
 
@@ -564,8 +555,16 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	direction := queryParams.Get("direction")
 
 	const limit = 100
-	var messages = []MessageResponse{}
+	var mRows *sql.Rows
 	var err error
+
+	const queryBase = `
+		SELECT 
+		m.id, m.sender_id, m.channel_id, m.message, m.attachment_count, m.edited, u.display_name, u.picture 
+		FROM messages m
+		JOIN users u ON m.sender_id = u.id
+		WHERE m.channel_id = ?%s
+		ORDER BY m.id %s LIMIT %d`
 
 	if messageIdStr != "" {
 		messageId, err := strconv.ParseInt(messageIdStr, 10, 64)
@@ -575,43 +574,71 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch direction {
-		case "before":
-			const q = `
-				SELECT m.*, u.display_name, u.picture FROM messages m
-				JOIN users u ON m.sender_id = u.id
-				WHERE m.channel_id = $1 AND m.id < $2
-				ORDER BY m.id DESC LIMIT $3`
-			err = env.db.Select(&messages, q, channelId, messageId, limit)
-		case "after":
-			const q = `
-				SELECT m.*, u.display_name, u.picture FROM messages m
-				JOIN users u ON m.sender_id = u.id
-				WHERE m.channel_id = $1 AND m.id > $2
-				ORDER BY m.id ASC LIMIT $3`
-			err = env.db.Select(&messages, q, channelId, messageId, limit)
+		case "before": // scrolling up
+			var q = fmt.Sprintf(queryBase, " AND m.id < ?", "DESC", limit)
+			mRows, err = env.db.Query(q, channelId, messageId)
+		case "after": // scrolling down
+			var q = fmt.Sprintf(queryBase, " AND m.id > ?", "ASC", limit)
+			mRows, err = env.db.Query(q, channelId, messageId)
 		default:
 			http.Error(w, "Unknown direction value", http.StatusBadRequest)
 			return
 		}
-	} else {
-		const q = `
-			SELECT m.*, u.display_name, u.picture FROM messages m
-			JOIN users u ON m.sender_id = u.id
-			WHERE m.channel_id = $1
-			ORDER BY m.id DESC LIMIT $2`
-		err = env.db.Select(&messages, q, channelId, limit)
+	} else { // if just getting last ones
+		var q = fmt.Sprintf(queryBase, "", "DESC", limit)
+		mRows, err = env.db.Query(q, channelId)
 	}
 	if err != nil {
 		macrosInternalServerError(w, err)
 		return
 	}
+	defer mRows.Close()
+
+	var messages []MessageResponse
+	for mRows.Next() {
+		var m MessageResponse
+		err := mRows.Scan(
+			&m.Id, &m.SenderId, &m.ChannelId, &m.Message, &m.AttachmentCount,
+			&m.Edited, &m.DisplayName, &m.Picture,
+		)
+		if err != nil {
+			macrosInternalServerError(w, err)
+			return
+		}
+		messages = append(messages, m)
+	}
+	if mRows.Err() != nil {
+		macrosInternalServerError(w, err)
+		return
+	}
 
 	// grab attachments for messages that have attachments
-	const q = "SELECT name, file FROM attachments WHERE message_id = $1"
+	stmt, err := env.db.Prepare("SELECT name, file FROM attachments WHERE message_id = ?")
+	if err != nil {
+		macrosInternalServerError(w, err)
+		return
+	}
+	defer stmt.Close()
+
 	for i := range messages {
 		if *messages[i].AttachmentCount > 0 {
-			err := env.db.Select(&messages[i].Attachments, q, messages[i].Id)
+			aRows, err := stmt.Query(messages[i].Id)
 			if err != nil {
+				macrosInternalServerError(w, err)
+				return
+			}
+			defer aRows.Close()
+
+			for aRows.Next() {
+				var a Attachment
+				err := aRows.Scan(&a.Name, &a.File)
+				if err != nil {
+					macrosInternalServerError(w, err)
+					return
+				}
+				messages[i].Attachments = append(messages[i].Attachments, a)
+			}
+			if aRows.Err() != nil {
 				macrosInternalServerError(w, err)
 				return
 			}
