@@ -8,11 +8,10 @@ import (
 )
 
 type Handler struct {
-	db       *sql.DB
-	dbTokens *sql.DB
-	idGen    *snowflake.Node
-	sm       *SessionManager
-	cancel   context.CancelFunc
+	db     *sql.DB
+	idGen  *snowflake.Node
+	sm     *SessionManager
+	cancel context.CancelFunc
 }
 
 // type Username string

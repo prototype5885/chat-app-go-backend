@@ -22,7 +22,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 			return
 		}
 
-		userId, expiration, err := getTokenData(env.dbTokens, tokenCookie.Value)
+		userId, expiration, err := getTokenData(env.db, tokenCookie.Value)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				cookie := setTokenCookie("", -1)
@@ -63,7 +63,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 			http.Error(w, "Token has expired", http.StatusUnauthorized)
 			return
 		} else if secondsUntilExp < (60*60*24)*(TokenLifetimeDays-1) { // if it's been at least 1 day since token exp was updated
-			err := updateTokenExpiration(env.dbTokens, tokenCookie.Value)
+			err := updateTokenExpiration(env.db, tokenCookie.Value)
 			if err != nil {
 				macrosInternalServerError(w, err)
 				return

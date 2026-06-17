@@ -8,17 +8,18 @@ import (
 	"path"
 )
 
-func initDatabase() (*sql.DB, *sql.DB, error) {
+func initDatabase() (db *sql.DB, err error) {
 	const databaseFolder = "database"
-	err := os.MkdirAll(databaseFolder, os.ModePerm)
+	err = os.MkdirAll(databaseFolder, os.ModePerm)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
-	db, err := sql.Open("sqlite3", path.Join(databaseFolder, "database.db"))
+	db, err = sql.Open("sqlite3", path.Join(databaseFolder, "database.db"))
 	if err != nil {
-		return nil, nil, err
+		return
 	}
+	db.SetMaxOpenConns(1)
 
 	_, err = db.Exec(`
 		PRAGMA journal_mode = WAL;
@@ -26,7 +27,7 @@ func initDatabase() (*sql.DB, *sql.DB, error) {
 		PRAGMA foreign_keys = ON;
 	`)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	_, err = db.Exec(fmt.Sprintf(`
@@ -41,7 +42,7 @@ func initDatabase() (*sql.DB, *sql.DB, error) {
 		);
 	`, validator.UsernameSchema.Max, validator.DisplaynameSchema.Max))
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	_, err = db.Exec(fmt.Sprintf(`
@@ -56,7 +57,7 @@ func initDatabase() (*sql.DB, *sql.DB, error) {
 		);
 	`, validator.ServerNameSchema.Max))
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	_, err = db.Exec(fmt.Sprintf(`
@@ -68,7 +69,7 @@ func initDatabase() (*sql.DB, *sql.DB, error) {
 		);
 	`, validator.ChannelNameSchema.Max))
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	_, err = db.Exec(fmt.Sprintf(`
@@ -84,7 +85,7 @@ func initDatabase() (*sql.DB, *sql.DB, error) {
 		);
 	`, validator.TextMessageSchema.Max))
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	_, err = db.Exec(`
@@ -98,7 +99,7 @@ func initDatabase() (*sql.DB, *sql.DB, error) {
 		);
 	`)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	_, err = db.Exec(`
@@ -112,33 +113,20 @@ func initDatabase() (*sql.DB, *sql.DB, error) {
 		);
 	`)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
-	// separate sqlite file for tokens
-	dbTokens, err := sql.Open("sqlite3", path.Join(databaseFolder, "tokens.db"))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	_, err = dbTokens.Exec(`
-		PRAGMA journal_mode = WAL;
-		PRAGMA synchronous = NORMAL;
-	`)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	_, err = dbTokens.Exec(fmt.Sprintf(`
+	_, err = db.Exec(fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS tokens (
 			token CHAR(%d) PRIMARY KEY,
 			user_id BIGINT NOT NULL,
-			expiration BIGINT NOT NULL
+			expiration BIGINT NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     	);
 	`, validator.TokenLength))
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
-	return db, dbTokens, nil
+	return
 }

@@ -189,7 +189,7 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 
 	hash := mustRandomHash(32)
 	token := base64.RawURLEncoding.EncodeToString(hash)
-	err = insertToken(env.dbTokens, token, record.Id)
+	err = insertToken(env.db, token, record.Id)
 	if err != nil {
 		macrosInternalServerError(w, err)
 		return
@@ -207,7 +207,7 @@ func (env *Handler) logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = deleteToken(env.dbTokens, token.Value)
+	err = deleteToken(env.db, token.Value)
 	if err != nil {
 		macrosInternalServerError(w, err)
 		return

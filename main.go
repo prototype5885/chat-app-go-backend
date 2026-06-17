@@ -43,13 +43,13 @@ func main() {
 		port = "1848"
 	}
 
-	db, dbTokens, err := initDatabase()
+	db, err := initDatabase()
 	if err != nil {
 		log.Println("SQlite setup error")
 		log.Fatal(err)
 	}
 
-	go databaseCleanerService(closeServer, db, dbTokens)
+	go databaseCleanerService(closeServer, db)
 
 	snowflake.Epoch = 1772841600
 	idGen, err := snowflake.NewNode(0)
@@ -61,7 +61,7 @@ func main() {
 	sm := &SessionManager{db: db, ctx: ctx}
 
 	// this is used to inject dependencies into handlers
-	h := Handler{db: db, dbTokens: dbTokens, idGen: idGen, sm: sm, cancel: closeServer}
+	h := Handler{db: db, idGen: idGen, sm: sm, cancel: closeServer}
 
 	// setup http server
 	router := chi.NewRouter()
@@ -128,11 +128,4 @@ func main() {
 			log.Println(err)
 		}
 	}
-	{
-		err := dbTokens.Close()
-		if err != nil {
-			log.Println(err)
-		}
-	}
-
 }
