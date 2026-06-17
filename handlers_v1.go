@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"log"
 	"math/rand"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/alexedwards/argon2id"
+
 	"github.com/mattn/go-sqlite3"
 )
 
@@ -312,6 +314,27 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	responseData := ResponseData{ID: userId, DisplayName: displayName}
 	jsonResponse(w, responseData, 200)
+}
+
+func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "Invalid uploaded file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	_, err = saveAvatar(file)
+	if err != nil {
+		var imgFormatErr *ImageFormatError
+		if errors.As(err, &imgFormatErr) {
+			http.Error(w, "Uploaded picture format isn't supported", http.StatusBadRequest)
+		} else {
+			macrosInternalServerError(w, err)
+		}
+		return
+	}
 }
 
 func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {

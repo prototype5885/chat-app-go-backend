@@ -81,7 +81,7 @@ func main() {
 		v1.With(h.AuthUserMw).Get("/user_id", h.getUserID)
 		v1.With(h.AuthUserMw).Get("/user", h.getUserInfo)
 		v1.With(h.AuthUserMw).Patch("/user", h.updateUserInfo)
-		// upload_user_avatar
+		v1.With(h.AuthUserMw).Post("/user/upload/avatar", h.uploadUserAvatar)
 		v1.With(h.AuthUserMw).Post("/server", h.createServer)
 		// get_server_info
 		// update_server_info
