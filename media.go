@@ -115,7 +115,12 @@ func generateResizedAvatar(name string, size int) error {
 	if err != nil {
 		return err
 	}
-	defer originalFile.Close()
+	defer func() {
+		err := originalFile.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	img, _, err := image.Decode(originalFile)
 	if err != nil {

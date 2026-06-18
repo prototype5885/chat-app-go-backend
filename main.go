@@ -31,7 +31,10 @@ func main() {
 	}()
 
 	// load env
-	godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	address := os.Getenv("ADDRESS")
 	if address == "" {

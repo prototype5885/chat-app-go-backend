@@ -28,12 +28,18 @@ type Claims struct {
 }
 
 func (env *Handler) test(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello go!")
+	_, err := fmt.Fprintf(w, "Hello go!")
+	if err != nil {
+		return
+	}
 }
 
 func (env *Handler) testAuth(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
-	fmt.Fprintf(w, "Hello %d!", userId)
+	_, err := fmt.Fprintf(w, "Hello %d!", userId)
+	if err != nil {
+		return
+	}
 }
 
 func (env Handler) session(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +62,10 @@ func (env Handler) session(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// send initial session id
-	w.Write(sseMessage("session_id", []byte(sessionId)))
+	_, err := w.Write(sseMessage("session_id", []byte(sessionId)))
+	if err != nil {
+		return
+	}
 	w.(http.Flusher).Flush()
 
 	// pubsub := env.rdb.Subscribe(r.Context(), "test")
@@ -91,7 +100,10 @@ func (env *Handler) testName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := r.URL.Query().Get("code")
-	fmt.Fprintf(w, "%s - %s", name, code)
+	_, err := fmt.Fprintf(w, "%s - %s", name, code)
+	if err != nil {
+		return
+	}
 }
 
 func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
@@ -282,7 +294,13 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 		macrosInternalServerError(w, err)
 		return
 	}
-	defer tx.Rollback()
+	defer func() {
+		err := tx.Rollback()
+		if err != nil {
+			log.Println(err)
+			env.cancel()
+		}
+	}()
 
 	{
 		if displayName != "" {
@@ -328,7 +346,14 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid uploaded file", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Println(err)
+			env.cancel()
+		}
+	}()
 
 	fileName, err := saveAvatar(file)
 	if err != nil {
@@ -349,7 +374,10 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 
 	// TODO emit change
 
-	w.Write([]byte(fileName))
+	_, err = w.Write([]byte(fileName))
+	if err != nil {
+		return
+	}
 }
 
 func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
@@ -383,7 +411,13 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 		macrosInternalServerError(w, err)
 		return
 	}
-	defer tx.Rollback()
+	defer func() {
+		err := tx.Rollback()
+		if err != nil {
+			log.Println(err)
+			env.cancel()
+		}
+	}()
 
 	_, err = tx.Exec(
 		"INSERT INTO servers (id, owner_id, name) VALUES (?, ?, ?)",
@@ -446,7 +480,13 @@ func (env *Handler) getServers(w http.ResponseWriter, r *http.Request) {
 		macrosInternalServerError(w, err)
 		return
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Println(err)
+			env.cancel()
+		}
+	}()
 
 	var servers []ServerDatabase
 	for rows.Next() {
@@ -523,7 +563,13 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		macrosInternalServerError(w, err)
 		return
 	}
-	defer tx.Rollback()
+	defer func() {
+		err := tx.Rollback()
+		if err != nil {
+			log.Println(err)
+			env.cancel()
+		}
+	}()
 
 	{
 		_, err := tx.Exec(`
@@ -605,7 +651,8 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		ORDER BY m.id %s LIMIT %d`
 
 	if messageIdStr != "" {
-		messageId, err := strconv.ParseInt(messageIdStr, 10, 64)
+		var messageId int64
+		messageId, err = strconv.ParseInt(messageIdStr, 10, 64)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -630,7 +677,14 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		macrosInternalServerError(w, err)
 		return
 	}
-	defer mRows.Close()
+
+	defer func() {
+		err := mRows.Close()
+		if err != nil {
+			log.Println(err)
+			env.cancel()
+		}
+	}()
 
 	var messages []MessageResponse
 	for mRows.Next() {
@@ -645,7 +699,8 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		}
 		messages = append(messages, m)
 	}
-	if mRows.Err() != nil {
+	err = mRows.Err()
+	if err != nil {
 		macrosInternalServerError(w, err)
 		return
 	}
@@ -656,7 +711,13 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		macrosInternalServerError(w, err)
 		return
 	}
-	defer stmt.Close()
+	defer func() {
+		err := stmt.Close()
+		if err != nil {
+			log.Println(err)
+			env.cancel()
+		}
+	}()
 
 	for i := range messages {
 		if *messages[i].AttachmentCount > 0 {
@@ -665,7 +726,13 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 				macrosInternalServerError(w, err)
 				return
 			}
-			defer aRows.Close()
+			defer func() {
+				err := aRows.Close()
+				if err != nil {
+					log.Println(err)
+					env.cancel()
+				}
+			}()
 
 			for aRows.Next() {
 				var a Attachment

@@ -56,7 +56,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 		}
 
 		// handle expiration
-		var secondsUntilExp int64 = expiration - time.Now().Unix()
+		secondsUntilExp := expiration - time.Now().Unix()
 		if secondsUntilExp < 0 { // minus means its past expiration
 			cookie := setTokenCookie("", -1)
 			http.SetCookie(w, &cookie)
@@ -106,7 +106,7 @@ func (env *Handler) IsServerOwnerMw(next http.Handler) http.Handler {
 			return
 		}
 
-		if isOwner == false {
+		if !isOwner {
 			text := fmt.Sprintf("You don't own server ID %d", serverId)
 			http.Error(w, text, http.StatusForbidden)
 			return
@@ -152,7 +152,7 @@ func (env *Handler) HasServerAccessMw(next http.Handler) http.Handler {
 			return
 		}
 
-		if hasAccess == false {
+		if !hasAccess {
 			text := fmt.Sprintf("You have no access to server ID %d", serverId)
 			http.Error(w, text, http.StatusForbidden)
 			return
@@ -197,7 +197,7 @@ func (env *Handler) IsChannelOwnerMw(next http.Handler) http.Handler {
 			return
 		}
 
-		if isOwner == false {
+		if !isOwner {
 			text := fmt.Sprintf("You don't own channel ID %d", channelId)
 			http.Error(w, text, http.StatusForbidden)
 			return
@@ -244,7 +244,7 @@ func (env *Handler) HasChannelAccessMw(next http.Handler) http.Handler {
 			return
 		}
 
-		if hasAccess == false {
+		if !hasAccess {
 			text := fmt.Sprintf("You have no access to channel ID %d", channelId)
 			http.Error(w, text, http.StatusForbidden)
 			return
