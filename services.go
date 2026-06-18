@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"log"
 	"time"
 )
 
@@ -13,7 +12,7 @@ func databaseCleanerService(closeServer context.CancelFunc, db *sql.DB) {
 
 	stmt, err := db.Prepare("DELETE FROM tokens WHERE expiration < ?")
 	if err != nil {
-		log.Println(err)
+		sugar.Error(err)
 		closeServer()
 	}
 
@@ -21,22 +20,22 @@ func databaseCleanerService(closeServer context.CancelFunc, db *sql.DB) {
 	for {
 		result, err := stmt.Exec(time.Now().Unix())
 		if err != nil {
-			log.Println(err)
+			sugar.Error(err)
 			closeServer()
 		}
 		rowsAffected, err := result.RowsAffected()
 		if err != nil {
-			log.Println(err)
+			sugar.Error(err)
 			closeServer()
 		}
 
 		_, err = db.Exec("VACUUM")
 		if err != nil {
-			log.Println(err)
+			sugar.Error(err)
 			closeServer()
 		}
 
-		log.Printf("Cleaned %d expired tokens and vacuumed db files! Next run in %d hours.\n", rowsAffected, hoursInterval)
+		sugar.Infof("Cleaned %d expired tokens and vacuumed db files! Next run in %d hours.\n", rowsAffected, hoursInterval)
 		time.Sleep(hoursInterval * time.Hour)
 	}
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,11 +11,23 @@ import (
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
+var sugar *zap.SugaredLogger
+
 func main() {
+	logger, _ := zap.NewProduction()
+	defer func() {
+		err := logger.Sync()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
+	sugar = logger.Sugar()
+
 	// handle shutdowns/panics gracefully
 	ctx, closeServer := context.WithCancel(context.Background())
 
@@ -25,15 +36,14 @@ func main() {
 
 	go func() {
 		sig := <-signalChan
-		fmt.Println()
-		log.Printf("Received signal (%v)\n", sig)
+		sugar.Infof("\nReceived signal (%v)\n", sig)
 		closeServer()
 	}()
 
 	// load env
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal(err)
+		sugar.Fatal(err)
 	}
 
 	address := os.Getenv("ADDRESS")
@@ -48,8 +58,7 @@ func main() {
 
 	db, err := initDatabase()
 	if err != nil {
-		log.Println("SQlite setup error")
-		log.Fatal(err)
+		sugar.Fatal(err)
 	}
 
 	go databaseCleanerService(closeServer, db)
@@ -57,14 +66,13 @@ func main() {
 	snowflake.Epoch = 1772841600
 	idGen, err := snowflake.NewNode(0)
 	if err != nil {
-		log.Println("Snowflake ID generator setup error:")
-		log.Fatal(err)
+		sugar.Fatal(err)
 	}
 
 	sm := &SessionManager{db: db, ctx: ctx}
 
 	// this is used to inject dependencies into handlers
-	h := Handler{db: db, idGen: idGen, sm: sm, cancel: closeServer}
+	h := Handler{db: db, idGen: idGen, sm: sm}
 
 	// setup http server
 	router := chi.NewRouter()
@@ -111,24 +119,23 @@ func main() {
 
 	hostAddress := fmt.Sprintf("%s:%s", address, port)
 	go func() {
-		log.Printf("Listening on %s\n", hostAddress)
+		sugar.Infof("Listening on %s\n", hostAddress)
 		err = http.ListenAndServe(hostAddress, router)
 		if err != nil {
-			log.Println("Server error:")
-			log.Println(err)
+			sugar.Error(err)
 			closeServer()
 		}
 	}()
 
 	// handle shutdown
 	<-ctx.Done()
-	log.Println("Shutting down server...")
+	sugar.Info("Shutting down server...")
 
-	log.Println("Closing sqlite connections...")
+	sugar.Info("Closing sqlite connections...")
 	{
 		err := db.Close()
 		if err != nil {
-			log.Println(err)
+			sugar.Error(err)
 		}
 	}
 }

@@ -3,16 +3,9 @@ package main
 import (
 	"crypto/rand"
 	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
 	"reflect"
 )
-
-func macrosInternalServerError(w http.ResponseWriter, err error) {
-	log.Printf("Internal server error:\n%s\n", err.Error())
-	http.Error(w, "", http.StatusInternalServerError)
-}
 
 func jsonResponse(w http.ResponseWriter, data any, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
@@ -20,7 +13,8 @@ func jsonResponse(w http.ResponseWriter, data any, statusCode int) {
 
 	err := json.NewEncoder(w).Encode(data)
 	if err != nil {
-		macrosInternalServerError(w, err)
+		sugar.Error(err)
+		http.Error(w, "", http.StatusInternalServerError)
 	}
 }
 
@@ -30,7 +24,8 @@ func textResponse(w http.ResponseWriter, text string, statusCode int) {
 
 	_, err := w.Write([]byte(text))
 	if err != nil {
-		macrosInternalServerError(w, err)
+		sugar.Error(err)
+		http.Error(w, "", http.StatusInternalServerError)
 	}
 }
 
@@ -47,8 +42,7 @@ func (env *Handler) mustGetIdFromServerContext(r *http.Request, keyType any) int
 	id, ok := r.Context().Value(keyType).(int64)
 	if !ok {
 		name := reflect.TypeOf(keyType).Name()
-		fmt.Printf("FATAL: Failed getting %s from r.Context()\n", name)
-		env.cancel()
+		sugar.Fatalf("Failed getting %s from r.Context()\n", name)
 	}
 	return id
 }

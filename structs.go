@@ -1,17 +1,15 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 
 	"github.com/bwmarrin/snowflake"
 )
 
 type Handler struct {
-	db     *sql.DB
-	idGen  *snowflake.Node
-	sm     *SessionManager
-	cancel context.CancelFunc
+	db    *sql.DB
+	idGen *snowflake.Node
+	sm    *SessionManager
 }
 
 // type Username string
