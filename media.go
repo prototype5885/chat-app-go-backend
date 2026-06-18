@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"image"
 	"mime/multipart"
 	"os"
+	"path/filepath"
 
 	"image/jpeg"
 	_ "image/jpeg"
@@ -59,13 +61,85 @@ func saveAvatar(file multipart.File) (string, error) {
 
 	// calculate sha256 hash of avatar
 	hash := sha256.Sum256(buf.Bytes())
-	imgHashStr := hex.EncodeToString(hash[:])
-	fileName := fmt.Sprintf("%s.jpg", imgHashStr)
+	hashStr := hex.EncodeToString(hash[:])
+	fileName := fmt.Sprintf("%s.jpg", hashStr)
 
-	// save as file
-	err = os.WriteFile(fileName, buf.Bytes(), 0666)
+	imgPath := filepath.Join("public", "avatars", fileName)
+
+	// lock so multiple goroutines can't write avatar files at same time
+	avatarFilesMutex.Lock()
+	defer avatarFilesMutex.Unlock()
+
+	// check again after unlock if avatar file exists now
+	// other user could have triggered it's creation during lock
+	_, err = os.Stat(imgPath)
+	if err == nil { // avatar with same hash already exist, no need to write to disk
+		return fileName, nil
+	} else if !errors.Is(err, os.ErrNotExist) { // unknown error happened during os.Stat
+		return "", err
+	}
+
+	// create avatars folder if doesn't exist
+	err = os.MkdirAll(filepath.Dir(imgPath), 0755)
 	if err != nil {
 		return "", err
 	}
+
+	// save as file
+	err = os.WriteFile(imgPath, buf.Bytes(), 0666)
+	if err != nil {
+		return "", err
+	}
+
 	return fileName, nil
+}
+
+func generateResizedAvatar(name string, size int) error {
+	resizedFilePath := filepath.Join("public", "avatars", fmt.Sprintf("%d", size), name)
+	originalFilePath := filepath.Join("public", "avatars", name)
+
+	// lock so multiple goroutines can't resize avatars at same time
+	resizedAvatarFilesMutex.Lock()
+	defer resizedAvatarFilesMutex.Unlock()
+
+	// check again after unlock if resized avatar file exists now
+	// other user could have triggered it's generation during lock
+	_, err := os.Stat(resizedFilePath)
+	if err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) { // unknown error happened during os.Stat
+		return err
+	}
+
+	originalFile, err := os.Open(originalFilePath)
+	if err != nil {
+		return err
+	}
+	defer originalFile.Close()
+
+	img, _, err := image.Decode(originalFile)
+	if err != nil {
+		return err
+	}
+
+	resizedImg := image.NewRGBA(image.Rect(0, 0, size, size))
+	draw.CatmullRom.Scale(resizedImg, resizedImg.Bounds(), img, img.Bounds(), draw.Src, nil)
+
+	var buf bytes.Buffer
+	err = jpeg.Encode(&buf, resizedImg, &jpeg.Options{Quality: 90})
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(filepath.Dir(resizedFilePath), 0755)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(resizedFilePath, buf.Bytes(), 0666)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

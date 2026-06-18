@@ -5,17 +5,18 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 )
 
 func initDatabase() (db *sql.DB, err error) {
-	const databaseFolder = "database"
-	err = os.MkdirAll(databaseFolder, os.ModePerm)
+	dbPath := filepath.Join("database", "database.db")
+
+	err = os.MkdirAll(filepath.Dir(dbPath), 0755)
 	if err != nil {
 		return
 	}
 
-	db, err = sql.Open("sqlite3", path.Join(databaseFolder, "database.db"))
+	db, err = sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return
 	}

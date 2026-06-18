@@ -7,6 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 
 	"log"
 	"math/rand"
@@ -317,6 +320,8 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
+	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+
 	file, _, err := r.FormFile("file")
 	if err != nil {
 		fmt.Println(err)
@@ -325,7 +330,7 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	_, err = saveAvatar(file)
+	fileName, err := saveAvatar(file)
 	if err != nil {
 		var imgFormatErr *ImageFormatError
 		if errors.As(err, &imgFormatErr) {
@@ -335,6 +340,16 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	_, err = env.db.Exec("UPDATE users SET picture = ? WHERE id = ?", fileName, userId)
+	if err != nil {
+		macrosInternalServerError(w, err)
+		return
+	}
+
+	// TODO emit change
+
+	w.Write([]byte(fileName))
 }
 
 func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
@@ -680,4 +695,78 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	// }
 
 	jsonResponse(w, messages, 200)
+}
+
+func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
+	fileName := r.PathValue("fileName")
+	if fileName == "" {
+		http.Error(w, "Missing filename parameter", http.StatusBadRequest)
+		return
+	}
+
+	// re := regexp.MustCompile(`^[a-fA-F0-9]{64}\.(?:jpg|webp)$`)
+	re := regexp.MustCompile(`^[a-fA-F0-9]{64}\.jpg$`)
+	if !re.MatchString(fileName) {
+		http.Error(w, "Invalid filename", http.StatusBadRequest)
+		return
+	}
+
+	queryParams := r.URL.Query()
+	sizeStr := queryParams.Get("size")
+
+	w.Header().Set("Cache-Control", "public, max-age=2592000, immutable")
+	originalFilePath := filepath.Join("public", "avatars", fileName)
+
+	// if requesting original size avatar
+	if sizeStr == "" {
+		http.ServeFile(w, r, originalFilePath)
+		return
+	}
+
+	// validate optional size parameter
+	if sizeStr != "80" && sizeStr != "96" {
+		http.Error(w, "Unsupported size parameter", http.StatusBadRequest)
+		return
+	}
+
+	// return resized avatar
+	resizedFilePath := filepath.Join("public", "avatars", sizeStr, fileName)
+	_, err := os.Stat(resizedFilePath)
+	if err == nil { // serve if resized avatar was found
+		http.ServeFile(w, r, resizedFilePath)
+		return
+	} else { // continue if only file missing error
+		if !errors.Is(err, os.ErrNotExist) {
+			macrosInternalServerError(w, err)
+			return
+		}
+	}
+
+	// if requested resized avatar wasn't found,
+	// and then the original wasn't found either,
+	// no point continuing
+	_, err = os.Stat(originalFilePath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			http.Error(w, "", http.StatusNotFound)
+		} else {
+			macrosInternalServerError(w, err)
+		}
+		return
+	}
+
+	// this shouldn't throw error as there are checks above
+	size, err := strconv.Atoi(sizeStr)
+	if err != nil {
+		macrosInternalServerError(w, err)
+		return
+	}
+
+	err = generateResizedAvatar(fileName, size)
+	if err != nil {
+		macrosInternalServerError(w, err)
+		return
+	}
+
+	http.ServeFile(w, r, resizedFilePath)
 }

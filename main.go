@@ -99,12 +99,12 @@ func main() {
 		// delete_message
 		v1.With(h.AuthUserMw, h.HasChannelAccessMw).Get("/channel/{channelId}/messages", h.getMessages)
 		// typing
-		// serve_avatars
 		// get_attachment
 		v1.Get("/test/{name}", h.testName)
 		// v1.Get("/messages", handleMessages)
 		// v1.With(AuthUserMw).Post("/server", handleCreateServer)
 	})
+	router.With(h.AuthUserMw).Get("/avatars/{fileName}", h.serveAvatars)
 
 	hostAddress := fmt.Sprintf("%s:%s", address, port)
 	go func() {
