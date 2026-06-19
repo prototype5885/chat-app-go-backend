@@ -50,7 +50,7 @@ func (env *Handler) mustGetIdFromServerContext(r *http.Request, keyType any) int
 	id, ok := r.Context().Value(keyType).(int64)
 	if !ok {
 		name := reflect.TypeOf(keyType).Name()
-		sugar.Fatalf("Failed getting %s from r.Context()\n", name)
+		sugar.Fatalf("Failed getting %s from r.Context()", name)
 	}
 	return id
 }

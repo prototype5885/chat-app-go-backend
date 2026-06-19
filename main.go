@@ -37,7 +37,7 @@ func main() {
 
 	go func() {
 		sig := <-signalChan
-		sugar.Infof("\nReceived signal (%v)\n", sig)
+		sugar.Infof("Received signal: %v", sig)
 		closeServer()
 	}()
 
@@ -121,7 +121,7 @@ func main() {
 
 	hostAddress := fmt.Sprintf("%s:%s", address, port)
 	go func() {
-		sugar.Infof("Listening on %s\n", hostAddress)
+		sugar.Infof("Listening on %s", hostAddress)
 		err = http.ListenAndServe(hostAddress, router)
 		if err != nil {
 			sugar.Error(err)

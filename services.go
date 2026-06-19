@@ -35,7 +35,7 @@ func databaseCleanerService(closeServer context.CancelFunc, db *sql.DB) {
 			closeServer()
 		}
 
-		sugar.Infof("Cleaned %d expired tokens and vacuumed db files! Next run in %d hours.\n", rowsAffected, hoursInterval)
+		sugar.Infof("Cleaned %d expired tokens and vacuumed db files! Next run in %d hours.", rowsAffected, hoursInterval)
 		time.Sleep(hoursInterval * time.Hour)
 	}
 }
