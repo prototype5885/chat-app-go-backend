@@ -22,12 +22,6 @@ var logger *zap.Logger
 
 func main() {
 	logger = zap.Must(zap.NewProduction())
-	defer func() {
-		err := logger.Sync()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}()
 
 	// handle shutdowns/panics gracefully
 	ctx, closeServer := context.WithCancel(context.Background())
@@ -135,11 +129,18 @@ func main() {
 	<-ctx.Done()
 	logger.Info("Shutting down server...")
 
-	logger.Info("Closing sqlite connections...")
 	{
+		logger.Info("Closing sqlite connections...")
 		err := db.Close()
 		if err != nil {
 			logger.Error(err.Error())
+		}
+	}
+	{
+		logger.Info("Flushing logger...")
+		err := logger.Sync()
+		if err != nil {
+			fmt.Println(err)
 		}
 	}
 }
