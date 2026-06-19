@@ -570,8 +570,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		m.id, m.sender_id, m.channel_id, m.message, m.attachment_count, m.edited, u.display_name, u.picture
 		FROM messages m
 		JOIN users u ON m.sender_id = u.id
-		WHERE m.channel_id = ?%s
-		ORDER BY m.id %s LIMIT %d`
+		WHERE m.channel_id = ?`
 
 	if messageIdStr != "" {
 		var messageId int64
@@ -584,18 +583,18 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 
 		switch direction {
 		case "before": // scrolling up
-			var q = fmt.Sprintf(queryBase, " AND m.id < ?", "DESC", limit)
-			messages, err = getMessagesFromDatabase(env.db, q, channelId, messageId)
+			const q = queryBase + " AND m.id < ? ORDER by m.id DESC LIMIT ?"
+			messages, err = getMessagesFromDatabase(env.db, q, channelId, messageId, limit)
 		case "after": // scrolling down
-			var q = fmt.Sprintf(queryBase, " AND m.id > ?", "ASC", limit)
-			messages, err = getMessagesFromDatabase(env.db, q, channelId, messageId)
+			const q = queryBase + " AND m.id > ? ORDER by m.id ASC LIMIT ?"
+			messages, err = getMessagesFromDatabase(env.db, q, channelId, messageId, limit)
 		default:
 			http.Error(w, "Unknown direction value", http.StatusBadRequest)
 			return
 		}
 	} else { // if just getting last ones
-		var q = fmt.Sprintf(queryBase, "", "DESC", limit)
-		messages, err = getMessagesFromDatabase(env.db, q, channelId)
+		const q = queryBase + " ORDER by m.id DESC LIMIT ?"
+		messages, err = getMessagesFromDatabase(env.db, q, channelId, limit)
 	}
 	if err != nil {
 		handleUnexpectedError(w, err)
