@@ -22,11 +22,7 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-type Claims struct {
-	UserID string `json:"user_id"`
-}
-
-func (env *Handler) test(w http.ResponseWriter, r *http.Request) {
+func (env *Handler) test(w http.ResponseWriter, _ *http.Request) {
 	_, err := fmt.Fprintf(w, "Hello go!")
 	if err != nil {
 		sugar.Warn(err)
@@ -141,8 +137,8 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 		env.idGen.Generate().Int64(), username, username, hashedPassword,
 	)
 	if err != nil {
-		var sqliteErr sqlite3.Error
-		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+		sqliteErr, isSqliteErr := errors.AsType[sqlite3.Error](err)
+		if isSqliteErr && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
 			http.Error(w, "User with same username already exists", http.StatusConflict)
 		} else {
 			sugar.Error(err)
@@ -220,7 +216,7 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenCookie := setTokenCookie(token, TokenLifetimeSeconds)
-	http.SetCookie(w, &tokenCookie)
+	http.SetCookie(w, tokenCookie)
 }
 
 func (env *Handler) logout(w http.ResponseWriter, r *http.Request) {
@@ -239,7 +235,7 @@ func (env *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	deleteTokenCookie := setTokenCookie("", -1)
-	http.SetCookie(w, &deleteTokenCookie)
+	http.SetCookie(w, deleteTokenCookie)
 }
 
 func (env *Handler) delete(w http.ResponseWriter, r *http.Request) {
@@ -373,8 +369,8 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 
 	fileName, err := saveAvatar(file)
 	if err != nil {
-		var imgFormatErr *ImageFormatError
-		if errors.As(err, &imgFormatErr) {
+		_, isImageFormatError := errors.AsType[*ImageFormatError](err)
+		if isImageFormatError {
 			http.Error(w, "Uploaded picture format isn't supported", http.StatusBadRequest)
 		} else {
 			sugar.Error(err)
@@ -675,7 +671,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// subscribe for events if has session id in header and not the first request
+	// subscribe for events if it has session id in header and not the first request
 	// sessionIdStr := r.Header.Get("Session-Id")
 	// if sessionIdStr != "" && messageIdStr == "" {
 	// 	sessionId, err := strconv.ParseInt(sessionIdStr, 10, 64)
@@ -727,12 +723,12 @@ func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 	if err == nil { // serve if resized avatar was found
 		http.ServeFile(w, r, resizedFilePath)
 		return
-	} else { // continue if only file missing error
-		if !errors.Is(err, os.ErrNotExist) {
-			sugar.Error(err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
+	}
+	// continue if only file missing error
+	if !errors.Is(err, os.ErrNotExist) {
+		sugar.Error(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
 	}
 
 	// if requested resized avatar wasn't found,

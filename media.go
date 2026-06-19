@@ -45,7 +45,7 @@ func saveAvatar(file multipart.File) (string, error) {
 	x := (w - minSize) / 2
 	y := (h - minSize) / 2
 	croppedImg := image.NewRGBA(image.Rect(0, 0, minSize, minSize))
-	draw.Draw(croppedImg, croppedImg.Bounds(), img, image.Point{x, y}, draw.Src)
+	draw.Draw(croppedImg, croppedImg.Bounds(), img, image.Point{X: x, Y: y}, draw.Src)
 
 	// resize to 256x256
 	const size = 256
@@ -71,7 +71,7 @@ func saveAvatar(file multipart.File) (string, error) {
 	defer avatarFilesMutex.Unlock()
 
 	// check again after unlock if avatar file exists now
-	// other user could have triggered it's creation during lock
+	// other user could have triggered its creation during lock
 	_, err = os.Stat(imgPath)
 	if err == nil { // avatar with same hash already exist, no need to write to disk
 		return fileName, nil
@@ -79,7 +79,7 @@ func saveAvatar(file multipart.File) (string, error) {
 		return "", err
 	}
 
-	// create avatars folder if doesn't exist
+	// create avatars folder if it doesn't exist
 	err = os.MkdirAll(filepath.Dir(imgPath), 0755)
 	if err != nil {
 		return "", err
@@ -103,7 +103,7 @@ func generateResizedAvatar(name string, size int) error {
 	defer resizedAvatarFilesMutex.Unlock()
 
 	// check again after unlock if resized avatar file exists now
-	// other user could have triggered it's generation during lock
+	// other user could have triggered its generation during lock
 	_, err := os.Stat(resizedFilePath)
 	if err == nil {
 		return nil

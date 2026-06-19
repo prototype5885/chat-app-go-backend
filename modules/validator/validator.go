@@ -31,7 +31,7 @@ var ChannelNameSchema = Schema{Field: "channel_name", Min: 1, Max: 32, Regexp: n
 var TextMessageSchema = Schema{Field: "text_message", Min: 1, Max: 4096, Regexp: nil}
 
 func (schema *Schema) Validate(text string, optional bool) ValidationError {
-	issues := []string{}
+	var issues []string
 
 	if text == "" {
 		if optional {
@@ -59,7 +59,7 @@ func (schema *Schema) Validate(text string, optional bool) ValidationError {
 }
 
 func MergeValidationIssues(allIssues ...ValidationError) []ValidationError {
-	issues := []ValidationError{}
+	var issues []ValidationError
 
 	for i := range allIssues {
 		if allIssues[i].Issues != nil {

@@ -27,7 +27,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				cookie := setTokenCookie("", -1)
-				http.SetCookie(w, &cookie)
+				http.SetCookie(w, cookie)
 				http.Error(w, "Token not found", http.StatusUnauthorized)
 			} else {
 				sugar.Error(err)
@@ -62,7 +62,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 		secondsUntilExp := expiration - time.Now().Unix()
 		if secondsUntilExp < 0 { // minus means its past expiration
 			cookie := setTokenCookie("", -1)
-			http.SetCookie(w, &cookie)
+			http.SetCookie(w, cookie)
 			http.Error(w, "Token has expired", http.StatusUnauthorized)
 			return
 		} else if secondsUntilExp < (60*60*24)*(TokenLifetimeDays-1) { // if it's been at least 1 day since token exp was updated
@@ -73,7 +73,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 				return
 			}
 			cookie := setTokenCookie(tokenCookie.Value, TokenLifetimeSeconds)
-			http.SetCookie(w, &cookie)
+			http.SetCookie(w, cookie)
 		}
 
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), UserIdKeyType{}, userId)))
@@ -262,9 +262,9 @@ func (env *Handler) HasChannelAccessMw(next http.Handler) http.Handler {
 	})
 }
 
-func SetHeaderMw(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("XDD", "lol")
-		next.ServeHTTP(w, r)
-	})
-}
+//func SetHeaderMw(next http.Handler) http.Handler {
+//	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+//		w.Header().Set("XDD", "lol")
+//		next.ServeHTTP(w, r)
+//	})
+//}

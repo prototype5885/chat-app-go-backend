@@ -34,8 +34,8 @@ func updateTokenExpiration(db *sql.DB, token string) error {
 	return err
 }
 
-func setTokenCookie(value string, maxAge int) http.Cookie {
-	return http.Cookie{
+func setTokenCookie(value string, maxAge int) *http.Cookie {
+	return &http.Cookie{
 		Name:     "token",
 		Value:    value,
 		Path:     "/",
