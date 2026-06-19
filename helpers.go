@@ -20,15 +20,6 @@ func jsonResponse(w http.ResponseWriter, data any, statusCode int) {
 	}
 }
 
-func handleUnexpectedError(w http.ResponseWriter, err error) {
-	// if errors.Is(err, context.Canceled) {
-	// 	return
-	// }
-
-	http.Error(w, "", http.StatusInternalServerError)
-	slog.Error(err.Error())
-}
-
 func textResponse(w http.ResponseWriter, text string, statusCode int) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(statusCode)
@@ -37,6 +28,15 @@ func textResponse(w http.ResponseWriter, text string, statusCode int) {
 	if err != nil {
 		slog.Warn(err.Error())
 	}
+}
+
+func handleUnexpectedError(w http.ResponseWriter, err error) {
+	// if errors.Is(err, context.Canceled) {
+	// 	return
+	// }
+
+	http.Error(w, "", http.StatusInternalServerError)
+	slog.Error(err.Error())
 }
 
 func mustRandomHash(length int) []byte {

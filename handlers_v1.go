@@ -24,20 +24,12 @@ import (
 )
 
 func (env *Handler) test(w http.ResponseWriter, _ *http.Request) {
-	_, err := fmt.Fprintf(w, "Hello go!")
-	if err != nil {
-		slog.Warn(err.Error())
-		return
-	}
+	textResponse(w, "Hello go!", http.StatusOK)
 }
 
 func (env *Handler) testAuth(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
-	_, err := fmt.Fprintf(w, "Hello %d!", userId)
-	if err != nil {
-		slog.Warn(err.Error())
-		return
-	}
+	textResponse(w, fmt.Sprintf("Hello %d!", userId), http.StatusOK)
 }
 
 func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
