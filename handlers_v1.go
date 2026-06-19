@@ -132,7 +132,7 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = env.db.Exec(`
-		INSERT INTO users (id, username, display_name, password) 
+		INSERT INTO users (id, username, display_name, password)
 		VALUES (?, ?, ?, ?)`,
 		env.idGen.Generate().Int64(), username, username, hashedPassword,
 	)
@@ -463,7 +463,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	row := env.db.QueryRow(`
-		SELECT id, owner_id, name, picture, banner, roles 
+		SELECT id, owner_id, name, picture, banner, roles
 		FROM servers WHERE id = ?
 	`, serverId)
 
@@ -622,8 +622,8 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	const queryBase = `
-		SELECT 
-		m.id, m.sender_id, m.channel_id, m.message, m.attachment_count, m.edited, u.display_name, u.picture 
+		SELECT
+		m.id, m.sender_id, m.channel_id, m.message, m.attachment_count, m.edited, u.display_name, u.picture
 		FROM messages m
 		JOIN users u ON m.sender_id = u.id
 		WHERE m.channel_id = ?%s
