@@ -8,24 +8,23 @@ import (
 	"reflect"
 )
 
-// func internalError(w http.ResponseWriter, err error) bool {
-// 	if err != nil {
-// 		sugar.Error(err)
-// 		http.Error(w, "", http.StatusInternalServerError)
-// 		return true
-// 	}
-// 	return false
-// }
-
 func jsonResponse(w http.ResponseWriter, data any, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 
 	err := json.NewEncoder(w).Encode(data)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		sugar.Warn(err)
 	}
+}
+
+func handleUnexpectedError(w http.ResponseWriter, err error) {
+	// if errors.Is(err, context.Canceled) {
+	// 	return
+	// }
+
+	http.Error(w, "", http.StatusInternalServerError)
+	sugar.Error(err)
 }
 
 func textResponse(w http.ResponseWriter, text string, statusCode int) {
@@ -34,8 +33,7 @@ func textResponse(w http.ResponseWriter, text string, statusCode int) {
 
 	_, err := w.Write([]byte(text))
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		sugar.Warn(err)
 	}
 }
 
@@ -43,7 +41,7 @@ func mustRandomHash(length int) []byte {
 	buffer := make([]byte, length)
 	_, err := rand.Read(buffer)
 	if err != nil {
-		panic(err)
+		sugar.Fatal(err)
 	}
 	return buffer
 }
@@ -59,6 +57,13 @@ func (env *Handler) mustGetIdFromServerContext(r *http.Request, keyType any) int
 
 func closeRows(rows *sql.Rows) {
 	err := rows.Close()
+	if err != nil {
+		sugar.Error(err)
+	}
+}
+
+func rollbackTx(tx *sql.Tx) {
+	err := tx.Rollback()
 	if err != nil {
 		sugar.Error(err)
 	}

@@ -126,8 +126,7 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 
 	hashedPassword, err := argon2id.CreateHash(password, argon2id.DefaultParams)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -141,8 +140,7 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 		if isSqliteErr && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
 			http.Error(w, "User with same username already exists", http.StatusConflict)
 		} else {
-			sugar.Error(err)
-			http.Error(w, "", http.StatusInternalServerError)
+			handleUnexpectedError(w, err)
 		}
 		return
 	}
@@ -189,16 +187,14 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, sql.ErrNoRows):
 			badLogin()
 		default:
-			sugar.Error(err)
-			http.Error(w, "", http.StatusInternalServerError)
+			handleUnexpectedError(w, err)
 		}
 		return
 	}
 
 	match, err := argon2id.ComparePasswordAndHash(password, record.Password)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 	if !match {
@@ -210,8 +206,7 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 	token := base64.RawURLEncoding.EncodeToString(hash)
 	err = insertToken(env.db, token, record.Id)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -222,15 +217,13 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	token, err := r.Cookie("token")
 	if err != nil {
-		sugar.Errorw("Was unable to get token cookie in logout handler", "error", err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
 	err = deleteToken(env.db, token.Value)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -243,8 +236,7 @@ func (env *Handler) delete(w http.ResponseWriter, r *http.Request) {
 
 	_, err := env.db.Exec("DELETE FROM users WHERE id = ?", userId)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 }
@@ -263,15 +255,7 @@ func (env *Handler) getUserInfo(w http.ResponseWriter, r *http.Request) {
 	var user UserResponse
 	err := row.Scan(&user.Id, &user.Username, &user.DisplayName, &user.Picture, &user.CustomStatus)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			errMsg := fmt.Sprintf("Tried to get own user info of user ID %d after auth middleware but user was not found\n", userId)
-			sugar.Errorw(errMsg, "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-		default:
-			sugar.Error(err)
-			http.Error(w, "", http.StatusInternalServerError)
-		}
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -301,24 +285,16 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := env.db.Begin()
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
-	defer func() {
-		err := tx.Rollback()
-		if err != nil {
-			sugar.Error(err)
-			return
-		}
-	}()
+	defer rollbackTx(tx)
 
 	{
 		if displayName != "" {
 			_, err := tx.Exec("UPDATE users SET display_name = ? WHERE id = ?", displayName, userId)
 			if err != nil {
-				sugar.Error(err)
-				http.Error(w, "", http.StatusInternalServerError)
+				handleUnexpectedError(w, err)
 				return
 			}
 		}
@@ -326,8 +302,7 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	err = tx.Commit()
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -373,26 +348,20 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 		if isImageFormatError {
 			http.Error(w, "Uploaded picture format isn't supported", http.StatusBadRequest)
 		} else {
-			sugar.Error(err)
-			http.Error(w, "", http.StatusInternalServerError)
+			handleUnexpectedError(w, err)
 		}
 		return
 	}
 
 	_, err = env.db.Exec("UPDATE users SET picture = ? WHERE id = ?", fileName, userId)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
 	// TODO emit change
 
-	_, err = w.Write([]byte(fileName))
-	if err != nil {
-		sugar.Warn(err)
-		return
-	}
+	textResponse(w, fileName, http.StatusOK)
 }
 
 func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
@@ -424,8 +393,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := env.db.Begin()
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 	defer func() {
@@ -440,8 +408,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 		serverId, userId, p.Name,
 	)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -450,15 +417,13 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 		channelId, serverId, "Default channel",
 	)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -470,15 +435,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 	var server ServerDatabase
 	err = row.Scan(&server.Id, &server.OwnerID, &server.Name, &server.Picture, &server.Banner, &server.Roles)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			errMsg := fmt.Sprintf("Created a server with ID %d but server was not found in database after creation\n", serverId)
-			sugar.Errorw(errMsg, "error", err)
-			http.Error(w, "", http.StatusInternalServerError)
-		default:
-			sugar.Error(err)
-			http.Error(w, "", http.StatusInternalServerError)
-		}
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -490,8 +447,7 @@ func (env *Handler) getServers(w http.ResponseWriter, r *http.Request) {
 
 	servers, err := getServersFromDatabase(env.db, userId)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -503,8 +459,7 @@ func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
 
 	channels, err := getChannelsFromDatabase(env.db, serverId)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -535,16 +490,10 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := env.db.Begin()
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
-	defer func() {
-		err := tx.Rollback()
-		if err != nil {
-			sugar.Error(err)
-		}
-	}()
+	defer rollbackTx(tx)
 
 	{
 		_, err := tx.Exec(`
@@ -553,8 +502,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 			messageId, userId, channelId, message, attachmentsCount,
 		)
 		if err != nil {
-			sugar.Error(err)
-			http.Error(w, "", http.StatusInternalServerError)
+			handleUnexpectedError(w, err)
 			return
 		}
 	}
@@ -564,8 +512,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 
 	err = tx.Commit()
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -575,8 +522,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		row := env.db.QueryRow("SELECT display_name, picture FROM users WHERE id = ?", userId)
 		err := row.Scan(&displayName, &picture)
 		if err != nil {
-			sugar.Error(err)
-			http.Error(w, "", http.StatusInternalServerError)
+			handleUnexpectedError(w, err)
 			return
 		}
 	}
@@ -593,16 +539,14 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 
 	// messageResponseJson, err := json.Marshal(messageResponse)
 	// if err != nil {
-	// 	sugar.Error(err)
-	// 	http.Error(w, "", http.StatusInternalServerError)
+	// internalServerErrorResponse(w, err)
 	// 	return
 	// }
 
 	// subject := fmt.Sprintf("channel.%d.create_message", channelId)
 	// err = env.nats.Publish(subject, messageResponseJson)
 	// if err != nil {
-	// 	sugar.Error(err)
-	// 	http.Error(w, "", http.StatusInternalServerError)
+	// internalServerErrorResponse(w, err)
 	// 	return
 	// }
 
@@ -654,8 +598,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		messages, err = getMessagesFromDatabase(env.db, q, channelId)
 	}
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -664,8 +607,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		if *messages[i].AttachmentCount > 0 {
 			messages[i].Attachments, err = getAttachmentsFromDatabse(env.db, messages[i].Id)
 			if err != nil {
-				sugar.Error(err)
-				http.Error(w, "", http.StatusInternalServerError)
+				handleUnexpectedError(w, err)
 				return
 			}
 		}
@@ -726,8 +668,7 @@ func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 	}
 	// continue if only file missing error
 	if !errors.Is(err, os.ErrNotExist) {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
@@ -739,8 +680,7 @@ func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, os.ErrNotExist) {
 			http.Error(w, "", http.StatusNotFound)
 		} else {
-			sugar.Error(err)
-			http.Error(w, "", http.StatusInternalServerError)
+			handleUnexpectedError(w, err)
 		}
 		return
 	}
@@ -748,15 +688,13 @@ func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 	// this shouldn't throw error as there are checks above
 	size, err := strconv.Atoi(sizeStr)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
 	err = generateResizedAvatar(fileName, size)
 	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		handleUnexpectedError(w, err)
 		return
 	}
 
