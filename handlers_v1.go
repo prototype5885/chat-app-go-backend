@@ -492,40 +492,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) getServers(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
-	const q = `
-		SELECT id, owner_id, name, picture, banner, roles FROM servers s WHERE s.owner_id = ?
-		UNION
-		SELECT id, owner_id, name, picture, banner, roles FROM servers s
-		JOIN server_members m ON s.id = m.server_id
-		WHERE m.member_id = ?
-	`
-
-	rows, err := env.db.Query(q, userId, userId)
-	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	defer func() {
-		err := rows.Close()
-		if err != nil {
-			sugar.Error(err)
-		}
-	}()
-
-	var servers []ServerDatabase
-	for rows.Next() {
-		var server ServerDatabase
-		err := rows.Scan(&server.Id, &server.OwnerID, &server.Name, &server.Picture, &server.Banner, &server.Roles)
-		if err != nil {
-			sugar.Error(err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		servers = append(servers, server)
-	}
-
-	err = rows.Err()
+	servers, err := getServersFromDatabase(env.db, userId)
 	if err != nil {
 		sugar.Error(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -538,33 +505,7 @@ func (env *Handler) getServers(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
 	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
 
-	const q = "SELECT id, server_id, name FROM channels WHERE server_id = ?"
-
-	rows, err := env.db.Query(q, serverId)
-	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	defer func() {
-		err := rows.Close()
-		if err != nil {
-			sugar.Error(err)
-		}
-	}()
-
-	var channels []ChannelDatabase
-	for rows.Next() {
-		var channel ChannelDatabase
-		err := rows.Scan(&channel.Id, &channel.ServerId, &channel.Name)
-		if err != nil {
-			sugar.Error(err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		channels = append(channels, channel)
-	}
-	err = rows.Err()
+	channels, err := getChannelsFromDatabase(env.db, serverId)
 	if err != nil {
 		sugar.Error(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -681,7 +622,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	direction := queryParams.Get("direction")
 
 	const limit = 100
-	var mRows *sql.Rows
+	var messages []MessageResponse
 	var err error
 
 	const queryBase = `
@@ -704,46 +645,18 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		switch direction {
 		case "before": // scrolling up
 			var q = fmt.Sprintf(queryBase, " AND m.id < ?", "DESC", limit)
-			mRows, err = env.db.Query(q, channelId, messageId)
+			messages, err = getMessagesFromDatabase(env.db, q, channelId, messageId)
 		case "after": // scrolling down
 			var q = fmt.Sprintf(queryBase, " AND m.id > ?", "ASC", limit)
-			mRows, err = env.db.Query(q, channelId, messageId)
+			messages, err = getMessagesFromDatabase(env.db, q, channelId, messageId)
 		default:
 			http.Error(w, "Unknown direction value", http.StatusBadRequest)
 			return
 		}
 	} else { // if just getting last ones
 		var q = fmt.Sprintf(queryBase, "", "DESC", limit)
-		mRows, err = env.db.Query(q, channelId)
+		messages, err = getMessagesFromDatabase(env.db, q, channelId)
 	}
-	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-
-	defer func() {
-		err := mRows.Close()
-		if err != nil {
-			sugar.Error(err)
-		}
-	}()
-
-	var messages []MessageResponse
-	for mRows.Next() {
-		var m MessageResponse
-		err := mRows.Scan(
-			&m.Id, &m.SenderId, &m.ChannelId, &m.Message, &m.AttachmentCount,
-			&m.Edited, &m.DisplayName, &m.Picture,
-		)
-		if err != nil {
-			sugar.Error(err)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-		messages = append(messages, m)
-	}
-	err = mRows.Err()
 	if err != nil {
 		sugar.Error(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -751,45 +664,9 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// grab attachments for messages that have attachments
-	stmt, err := env.db.Prepare("SELECT name, file FROM attachments WHERE message_id = ?")
-	if err != nil {
-		sugar.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	defer func() {
-		err := stmt.Close()
-		if err != nil {
-			sugar.Error(err)
-		}
-	}()
-
 	for i := range messages {
 		if *messages[i].AttachmentCount > 0 {
-			aRows, err := stmt.Query(messages[i].Id)
-			if err != nil {
-				sugar.Error(err)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-			defer func() {
-				err := aRows.Close()
-				if err != nil {
-					sugar.Error(err)
-				}
-			}()
-
-			for aRows.Next() {
-				var a Attachment
-				err := aRows.Scan(&a.Name, &a.File)
-				if err != nil {
-					sugar.Error(err)
-					http.Error(w, "", http.StatusInternalServerError)
-					return
-				}
-				messages[i].Attachments = append(messages[i].Attachments, a)
-			}
-			err = aRows.Err()
+			messages[i].Attachments, err = getAttachmentsFromDatabse(env.db, messages[i].Id)
 			if err != nil {
 				sugar.Error(err)
 				http.Error(w, "", http.StatusInternalServerError)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"reflect"
@@ -54,4 +55,11 @@ func (env *Handler) mustGetIdFromServerContext(r *http.Request, keyType any) int
 		sugar.Fatalf("Failed getting %s from r.Context()\n", name)
 	}
 	return id
+}
+
+func closeRows(rows *sql.Rows) {
+	err := rows.Close()
+	if err != nil {
+		sugar.Error(err)
+	}
 }

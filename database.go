@@ -131,3 +131,102 @@ func initDatabase() (db *sql.DB, err error) {
 
 	return
 }
+
+func getServersFromDatabase(db *sql.DB, userId int64) (servers []ServerDatabase, err error) {
+	var rows *sql.Rows
+
+	const q = `
+		SELECT id, owner_id, name, picture, banner, roles FROM servers s WHERE s.owner_id = ?
+		UNION
+		SELECT id, owner_id, name, picture, banner, roles FROM servers s
+		JOIN server_members m ON s.id = m.server_id
+		WHERE m.member_id = ?
+	`
+
+	rows, err = db.Query(q, userId, userId)
+	if err != nil {
+		return
+	}
+	defer closeRows(rows)
+
+	for rows.Next() {
+		var s ServerDatabase
+		err = rows.Scan(&s.Id, &s.OwnerID, &s.Name, &s.Picture, &s.Banner, &s.Roles)
+		if err != nil {
+			return
+		}
+		servers = append(servers, s)
+	}
+	err = rows.Err()
+	return
+}
+
+func getChannelsFromDatabase(db *sql.DB, serverId int64) (channels []ChannelDatabase, err error) {
+	var rows *sql.Rows
+
+	const q = "SELECT id, server_id, name FROM channels WHERE server_id = ?"
+
+	rows, err = db.Query(q, serverId)
+	if err != nil {
+		return
+	}
+	defer closeRows(rows)
+
+	for rows.Next() {
+		var c ChannelDatabase
+		err = rows.Scan(&c.Id, &c.ServerId, &c.Name)
+		if err != nil {
+			return
+		}
+		channels = append(channels, c)
+	}
+	err = rows.Err()
+	return
+}
+
+// args are either channelId alone or channelId and messageId
+func getMessagesFromDatabase(db *sql.DB, q string, args ...any) (messages []MessageResponse, err error) {
+	var rows *sql.Rows
+
+	rows, err = db.Query(q, args...)
+	if err != nil {
+		return
+	}
+	defer closeRows(rows)
+
+	for rows.Next() {
+		var m MessageResponse
+		err = rows.Scan(
+			&m.Id, &m.SenderId, &m.ChannelId, &m.Message, &m.AttachmentCount,
+			&m.Edited, &m.DisplayName, &m.Picture,
+		)
+		if err != nil {
+			return
+		}
+		messages = append(messages, m)
+	}
+	err = rows.Err()
+	return
+}
+
+func getAttachmentsFromDatabse(db *sql.DB, messageId string) (attachments []Attachment, err error) {
+	var rows *sql.Rows
+
+	const q = "SELECT name, file FROM attachments WHERE message_id = ?"
+	rows, err = db.Query(q, messageId)
+	if err != nil {
+		return
+	}
+	defer closeRows(rows)
+
+	for rows.Next() {
+		var a Attachment
+		err = rows.Scan(&a.Name, &a.File)
+		if err != nil {
+			return
+		}
+		attachments = append(attachments, a)
+	}
+	err = rows.Err()
+	return
+}
