@@ -39,7 +39,7 @@ func (env *Handler) testAuth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (env Handler) session(w http.ResponseWriter, r *http.Request) {
+func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -66,8 +66,8 @@ func (env Handler) session(w http.ResponseWriter, r *http.Request) {
 	}
 	w.(http.Flusher).Flush()
 
-	// pubsub := env.rdb.Subscribe(r.Context(), "test")
-	// for msg := range pubsub.Channel() {
+	// pubSub := env.rdb.Subscribe(r.Context(), "test")
+	// for msg := range pubSub.Channel() {
 	// 	fmt.Println(msg.Channel, msg.Payload)
 	// 	w.Write([]byte(messageString("", msg.Payload)))
 	// 	w.(http.Flusher).Flush()
@@ -80,7 +80,7 @@ func (env Handler) session(w http.ResponseWriter, r *http.Request) {
 	// 	w.(http.Flusher).Flush()
 	// }
 
-	// pubsub := env.rdb.Subscribe(r.Context(), "mychannel1")
+	// pubSub := env.rdb.Subscribe(r.Context(), "mychannel1")
 
 	// for i := range 10 {
 	// 	w.Write([]byte(messageString("", i)))
@@ -605,7 +605,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	// grab attachments for messages that have attachments
 	for i := range messages {
 		if *messages[i].AttachmentCount > 0 {
-			messages[i].Attachments, err = getAttachmentsFromDatabse(env.db, messages[i].Id)
+			messages[i].Attachments, err = getAttachmentsFromDatabase(env.db, messages[i].Id)
 			if err != nil {
 				handleUnexpectedError(w, err)
 				return

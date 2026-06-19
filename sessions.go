@@ -11,7 +11,7 @@ type SessionManager struct {
 	// sessions      map[string]Session
 	// onlineTracker map[string]map[string]struct{} // userID -> set of sessionIDs
 	subs map[int64]map[int64]struct{}
-	// sessionChans  map[string]chan EventMessage   // sessionID -> Go channel (replaces eventBus)
+	// sessionChannels  map[string]chan EventMessage   // sessionID -> Go channel (replaces eventBus)
 
 	db  *sql.DB
 	ctx context.Context
