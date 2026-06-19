@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -44,7 +45,9 @@ func main() {
 	// load env
 	err := godotenv.Load()
 	if err != nil {
-		sugar.Fatal(err)
+		if !errors.Is(err, os.ErrNotExist) {
+			sugar.Fatal(err)
+		}
 	}
 
 	address := os.Getenv("ADDRESS")
