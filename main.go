@@ -18,17 +18,16 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var sugar *zap.SugaredLogger
+var logger *zap.Logger
 
 func main() {
-	logger, _ := zap.NewProduction()
+	logger = zap.Must(zap.NewProduction())
 	defer func() {
 		err := logger.Sync()
 		if err != nil {
 			fmt.Println(err)
 		}
 	}()
-	sugar = logger.Sugar()
 
 	// handle shutdowns/panics gracefully
 	ctx, closeServer := context.WithCancel(context.Background())
@@ -38,7 +37,7 @@ func main() {
 
 	go func() {
 		sig := <-signalChan
-		sugar.Infof("Received signal: %v", sig)
+		logger.Info(fmt.Sprintf("Received signal: %v", sig))
 		closeServer()
 	}()
 
@@ -46,7 +45,7 @@ func main() {
 	err := godotenv.Load()
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			sugar.Fatal(err)
+			logger.Fatal(err.Error())
 		}
 	}
 
@@ -62,7 +61,7 @@ func main() {
 
 	db, err := initDatabase()
 	if err != nil {
-		sugar.Fatal(err)
+		logger.Fatal(err.Error())
 	}
 
 	go databaseCleanerService(closeServer, db)
@@ -70,7 +69,7 @@ func main() {
 	snowflake.Epoch = 1772841600
 	idGen, err := snowflake.NewNode(0)
 	if err != nil {
-		sugar.Fatal(err)
+		logger.Fatal(err.Error())
 	}
 
 	sm := &SessionManager{db: db, ctx: ctx}
@@ -124,23 +123,23 @@ func main() {
 
 	hostAddress := fmt.Sprintf("%s:%s", address, port)
 	go func() {
-		sugar.Infof("Listening on %s", hostAddress)
+		logger.Info("Listening on " + hostAddress)
 		err = http.ListenAndServe(hostAddress, router)
 		if err != nil {
-			sugar.Error(err)
+			logger.Error(err.Error())
 			closeServer()
 		}
 	}()
 
 	// handle shutdown
 	<-ctx.Done()
-	sugar.Info("Shutting down server...")
+	logger.Info("Shutting down server...")
 
-	sugar.Info("Closing sqlite connections...")
+	logger.Info("Closing sqlite connections...")
 	{
 		err := db.Close()
 		if err != nil {
-			sugar.Error(err)
+			logger.Error(err.Error())
 		}
 	}
 }
