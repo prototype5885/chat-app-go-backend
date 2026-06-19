@@ -4,42 +4,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
-	"go.uber.org/zap"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var logger *zap.Logger
-
 func main() {
-	logger = zap.Must(zap.NewProduction())
-
-	// handle shutdowns/panics gracefully
-	ctx, closeServer := context.WithCancel(context.Background())
-
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-signalChan
-		logger.Info(fmt.Sprintf("Received signal: %v", sig))
-		closeServer()
-	}()
-
 	// load env
 	err := godotenv.Load()
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			logger.Fatal(err.Error())
+			panic(err.Error())
 		}
 	}
 
@@ -53,9 +38,38 @@ func main() {
 		port = "1848"
 	}
 
+	// set logger level
+	logLevel := strings.ToUpper(os.Getenv("LOG_LEVEL"))
+	switch logLevel {
+	case "DEBUG":
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+	case "INFO":
+		slog.SetLogLoggerLevel(slog.LevelInfo)
+	case "WARN":
+		slog.SetLogLoggerLevel(slog.LevelWarn)
+	case "ERROR":
+		slog.SetLogLoggerLevel(slog.LevelError)
+	default:
+		logLevel = "INFO"
+		slog.SetLogLoggerLevel(slog.LevelInfo)
+	}
+	slog.Info("Current logger level: " + logLevel)
+
+	// handle shutdowns/panics gracefully
+	ctx, closeServer := context.WithCancel(context.Background())
+
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-signalChan
+		slog.Info(fmt.Sprintf("Received signal: %v", sig))
+		closeServer()
+	}()
+
 	db, err := initDatabase()
 	if err != nil {
-		logger.Fatal(err.Error())
+		panic(err.Error())
 	}
 
 	go databaseCleanerService(closeServer, db)
@@ -63,7 +77,7 @@ func main() {
 	snowflake.Epoch = 1772841600
 	idGen, err := snowflake.NewNode(0)
 	if err != nil {
-		logger.Fatal(err.Error())
+		panic(err.Error())
 	}
 
 	sm := &SessionManager{db: db, ctx: ctx}
@@ -117,30 +131,23 @@ func main() {
 
 	hostAddress := fmt.Sprintf("%s:%s", address, port)
 	go func() {
-		logger.Info("Listening on " + hostAddress)
+		slog.Info("Listening on " + hostAddress)
 		err = http.ListenAndServe(hostAddress, router)
 		if err != nil {
-			logger.Error(err.Error())
+			slog.Error(err.Error())
 			closeServer()
 		}
 	}()
 
 	// handle shutdown
 	<-ctx.Done()
-	logger.Info("Shutting down server...")
+	slog.Info("Shutting down server...")
 
 	{
-		logger.Info("Closing sqlite connections...")
+		slog.Info("Closing sqlite connections...")
 		err := db.Close()
 		if err != nil {
-			logger.Error(err.Error())
-		}
-	}
-	{
-		logger.Info("Flushing logger...")
-		err := logger.Sync()
-		if err != nil {
-			fmt.Println(err)
+			slog.Error(err.Error())
 		}
 	}
 }

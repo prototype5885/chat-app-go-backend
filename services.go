@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -13,7 +14,7 @@ func databaseCleanerService(closeServer context.CancelFunc, db *sql.DB) {
 
 	stmt, err := db.Prepare("DELETE FROM tokens WHERE expiration < ?")
 	if err != nil {
-		logger.Error(err.Error())
+		slog.Error(err.Error())
 		closeServer()
 	}
 
@@ -21,22 +22,22 @@ func databaseCleanerService(closeServer context.CancelFunc, db *sql.DB) {
 	for {
 		result, err := stmt.Exec(time.Now().Unix())
 		if err != nil {
-			logger.Error(err.Error())
+			slog.Error(err.Error())
 			closeServer()
 		}
 		rowsAffected, err := result.RowsAffected()
 		if err != nil {
-			logger.Error(err.Error())
+			slog.Error(err.Error())
 			closeServer()
 		}
 
 		_, err = db.Exec("VACUUM")
 		if err != nil {
-			logger.Error(err.Error())
+			slog.Error(err.Error())
 			closeServer()
 		}
 
-		logger.Info(
+		slog.Info(
 			fmt.Sprintf(
 				"Cleaned %d expired tokens and vacuumed db files! Next run in %d hours.",
 				rowsAffected, hoursInterval,

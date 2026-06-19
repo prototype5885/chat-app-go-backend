@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -25,7 +26,7 @@ import (
 func (env *Handler) test(w http.ResponseWriter, _ *http.Request) {
 	_, err := fmt.Fprintf(w, "Hello go!")
 	if err != nil {
-		logger.Warn(err.Error())
+		slog.Warn(err.Error())
 		return
 	}
 }
@@ -34,7 +35,7 @@ func (env *Handler) testAuth(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 	_, err := fmt.Fprintf(w, "Hello %d!", userId)
 	if err != nil {
-		logger.Warn(err.Error())
+		slog.Warn(err.Error())
 		return
 	}
 }
@@ -61,7 +62,7 @@ func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 	// send initial session id
 	_, err := w.Write(sseMessage("session_id", []byte(sessionId)))
 	if err != nil {
-		logger.Warn(err.Error())
+		slog.Warn(err.Error())
 		return
 	}
 	w.(http.Flusher).Flush()
@@ -107,7 +108,7 @@ func (env *Handler) testName(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		logger.Warn(err.Error())
+		slog.Warn(err.Error())
 		http.Error(w, "Couldn't parse form", http.StatusBadRequest)
 		return
 	}
@@ -149,7 +150,7 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		logger.Warn(err.Error())
+		slog.Warn(err.Error())
 		http.Error(w, "Invalid form", http.StatusBadRequest)
 		return
 	}
@@ -268,7 +269,7 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
 	if err != nil {
-		logger.Warn(err.Error())
+		slog.Warn(err.Error())
 		http.Error(w, "Invalid form", http.StatusBadRequest)
 		return
 	}
@@ -330,7 +331,7 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 
 	file, _, err := r.FormFile("file")
 	if err != nil {
-		logger.Warn(err.Error())
+		slog.Warn(err.Error())
 		http.Error(w, "Invalid uploaded file", http.StatusBadRequest)
 		return
 	}
@@ -338,7 +339,7 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		err := file.Close()
 		if err != nil {
-			logger.Error(err.Error())
+			slog.Error(err.Error())
 		}
 	}()
 
@@ -374,7 +375,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 	var p Payload
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
-		logger.Warn(err.Error())
+		slog.Warn(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -399,7 +400,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		err := tx.Rollback()
 		if err != nil {
-			logger.Error(err.Error())
+			slog.Error(err.Error())
 		}
 	}()
 
@@ -576,7 +577,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		var messageId int64
 		messageId, err = strconv.ParseInt(messageIdStr, 10, 64)
 		if err != nil {
-			logger.Warn(err.Error())
+			slog.Warn(err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"reflect"
 )
@@ -15,7 +16,7 @@ func jsonResponse(w http.ResponseWriter, data any, statusCode int) {
 
 	err := json.NewEncoder(w).Encode(data)
 	if err != nil {
-		logger.Warn(err.Error())
+		slog.Warn(err.Error())
 	}
 }
 
@@ -25,7 +26,7 @@ func handleUnexpectedError(w http.ResponseWriter, err error) {
 	// }
 
 	http.Error(w, "", http.StatusInternalServerError)
-	logger.Error(err.Error())
+	slog.Error(err.Error())
 }
 
 func textResponse(w http.ResponseWriter, text string, statusCode int) {
@@ -34,7 +35,7 @@ func textResponse(w http.ResponseWriter, text string, statusCode int) {
 
 	_, err := w.Write([]byte(text))
 	if err != nil {
-		logger.Warn(err.Error())
+		slog.Warn(err.Error())
 	}
 }
 
@@ -42,7 +43,7 @@ func mustRandomHash(length int) []byte {
 	buffer := make([]byte, length)
 	_, err := rand.Read(buffer)
 	if err != nil {
-		logger.Fatal(err.Error())
+		panic(err.Error())
 	}
 	return buffer
 }
@@ -51,7 +52,7 @@ func (env *Handler) mustGetIdFromServerContext(r *http.Request, keyType any) int
 	id, ok := r.Context().Value(keyType).(int64)
 	if !ok {
 		name := reflect.TypeOf(keyType).Name()
-		logger.Fatal(fmt.Sprintf("Failed getting %s from r.Context()", name))
+		panic(fmt.Sprintf("Failed getting %s from r.Context()", name))
 	}
 	return id
 }
@@ -59,13 +60,13 @@ func (env *Handler) mustGetIdFromServerContext(r *http.Request, keyType any) int
 func closeRows(rows *sql.Rows) {
 	err := rows.Close()
 	if err != nil {
-		logger.Error(err.Error())
+		slog.Error(err.Error())
 	}
 }
 
 func rollbackTx(tx *sql.Tx) {
 	err := tx.Rollback()
 	if err != nil {
-		logger.Error(err.Error())
+		slog.Error(err.Error())
 	}
 }
