@@ -7,6 +7,15 @@ import (
 	"reflect"
 )
 
+// func internalError(w http.ResponseWriter, err error) bool {
+// 	if err != nil {
+// 		sugar.Error(err)
+// 		http.Error(w, "", http.StatusInternalServerError)
+// 		return true
+// 	}
+// 	return false
+// }
+
 func jsonResponse(w http.ResponseWriter, data any, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 
@@ -77,7 +78,8 @@ func main() {
 	// setup http server
 	router := chi.NewRouter()
 	// router.Use(SetHeaderMw)
-	// router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.Logger)
 
 	router.Route("/api/v1", func(v1 chi.Router) {
 		v1.Get("/test", h.test)
