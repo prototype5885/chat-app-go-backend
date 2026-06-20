@@ -58,14 +58,11 @@ func (schema *Schema) Validate(text string, optional bool) ValidationError {
 	}
 }
 
-func MergeValidationIssues(allIssues ...ValidationError) []ValidationError {
-	var issues []ValidationError
-
+func MergeValidationIssues(allIssues ...ValidationError) (issues []ValidationError) {
 	for i := range allIssues {
 		if allIssues[i].Issues != nil {
 			issues = append(issues, allIssues[i])
 		}
 	}
-
-	return issues
+	return
 }
