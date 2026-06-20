@@ -321,10 +321,16 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
+	r.Body = http.MaxBytesReader(w, r.Body, 1024*1024)
 	file, _, err := r.FormFile("file")
 	if err != nil {
 		slog.Warn(err.Error())
-		http.Error(w, "Invalid uploaded file", 400)
+
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			http.Error(w, "Uploaded avatar is larger than 1 mb", 413)
+		} else {
+			http.Error(w, "Invalid uploaded file", 400)
+		}
 		return
 	}
 
