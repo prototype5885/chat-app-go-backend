@@ -15,7 +15,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 		tokenCookie, err := r.Cookie("token")
 		if err != nil {
 			if errors.Is(err, http.ErrNoCookie) {
-				http.Error(w, "No token", http.StatusUnauthorized)
+				http.Error(w, "No token", 401)
 			} else {
 				handleUnexpectedError(w, err)
 			}
@@ -27,7 +27,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 			if errors.Is(err, sql.ErrNoRows) {
 				cookie := setTokenCookie("", -1)
 				http.SetCookie(w, cookie)
-				http.Error(w, "Token not found", http.StatusUnauthorized)
+				http.Error(w, "Token not found", 401)
 			} else {
 				handleUnexpectedError(w, err)
 			}
@@ -50,7 +50,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 			}
 			if banned {
 				// set delete token cookie header
-				http.Error(w, "User is banned", http.StatusUnauthorized)
+				http.Error(w, "User is banned", 401)
 				return
 			}
 		}
@@ -60,7 +60,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 		if secondsUntilExp < 0 { // minus means its past expiration
 			cookie := setTokenCookie("", -1)
 			http.SetCookie(w, cookie)
-			http.Error(w, "Token has expired", http.StatusUnauthorized)
+			http.Error(w, "Token has expired", 401)
 			return
 		} else if secondsUntilExp < (60*60*24)*(TokenLifetimeDays-1) { // if it's been at least 1 day since token exp was updated
 			err := updateTokenExpiration(env.db, tokenCookie.Value)
@@ -82,12 +82,12 @@ func (env *Handler) IsServerOwnerMw(next http.Handler) http.Handler {
 
 		serverIdStr := r.PathValue("serverId")
 		if serverIdStr == "" {
-			http.Error(w, "Missing server ID parameter", http.StatusBadRequest)
+			http.Error(w, "Missing server ID parameter", 400)
 			return
 		}
 		serverId, err := strconv.ParseInt(serverIdStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), 400)
 			return
 		}
 
@@ -103,7 +103,7 @@ func (env *Handler) IsServerOwnerMw(next http.Handler) http.Handler {
 
 		if !isOwner {
 			text := fmt.Sprintf("You don't own server ID %d", serverId)
-			http.Error(w, text, http.StatusForbidden)
+			http.Error(w, text, 403)
 			return
 		}
 
@@ -117,12 +117,12 @@ func (env *Handler) HasServerAccessMw(next http.Handler) http.Handler {
 
 		serverIdStr := r.PathValue("serverId")
 		if serverIdStr == "" {
-			http.Error(w, "Missing server ID parameter", http.StatusBadRequest)
+			http.Error(w, "Missing server ID parameter", 400)
 			return
 		}
 		serverId, err := strconv.ParseInt(serverIdStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), 400)
 			return
 		}
 
@@ -144,7 +144,7 @@ func (env *Handler) HasServerAccessMw(next http.Handler) http.Handler {
 
 		if !hasAccess {
 			text := fmt.Sprintf("You have no access to server ID %d", serverId)
-			http.Error(w, text, http.StatusForbidden)
+			http.Error(w, text, 403)
 			return
 		}
 
@@ -158,12 +158,12 @@ func (env *Handler) IsChannelOwnerMw(next http.Handler) http.Handler {
 
 		channelIdStr := r.PathValue("channelId")
 		if channelIdStr == "" {
-			http.Error(w, "Missing channel ID parameter", http.StatusBadRequest)
+			http.Error(w, "Missing channel ID parameter", 400)
 			return
 		}
 		channelId, err := strconv.ParseInt(channelIdStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), 400)
 			return
 		}
 
@@ -184,7 +184,7 @@ func (env *Handler) IsChannelOwnerMw(next http.Handler) http.Handler {
 
 		if !isOwner {
 			text := fmt.Sprintf("You don't own channel ID %d", channelId)
-			http.Error(w, text, http.StatusForbidden)
+			http.Error(w, text, 403)
 			return
 		}
 
@@ -198,12 +198,12 @@ func (env *Handler) HasChannelAccessMw(next http.Handler) http.Handler {
 
 		channelIdStr := r.PathValue("channelId")
 		if channelIdStr == "" {
-			http.Error(w, "Missing channel ID parameter", http.StatusBadRequest)
+			http.Error(w, "Missing channel ID parameter", 400)
 			return
 		}
 		channelId, err := strconv.ParseInt(channelIdStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), 400)
 			return
 		}
 
@@ -226,7 +226,7 @@ func (env *Handler) HasChannelAccessMw(next http.Handler) http.Handler {
 
 		if !hasAccess {
 			text := fmt.Sprintf("You have no access to channel ID %d", channelId)
-			http.Error(w, text, http.StatusForbidden)
+			http.Error(w, text, 403)
 			return
 		}
 

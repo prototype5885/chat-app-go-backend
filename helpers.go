@@ -35,7 +35,7 @@ func handleUnexpectedError(w http.ResponseWriter, err error) {
 	// 	return
 	// }
 
-	http.Error(w, "", http.StatusInternalServerError)
+	http.Error(w, "", 500)
 	slog.Error(err.Error())
 }
 

@@ -24,12 +24,12 @@ import (
 )
 
 func (env *Handler) test(w http.ResponseWriter, _ *http.Request) {
-	textResponse(w, "Hello go!", http.StatusOK)
+	textResponse(w, "Hello go!", 200)
 }
 
 func (env *Handler) testAuth(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
-	textResponse(w, fmt.Sprintf("Hello %d!", userId), http.StatusOK)
+	textResponse(w, fmt.Sprintf("Hello %d!", userId), 200)
 }
 
 func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +87,7 @@ func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) testName(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	if name != "prototype585" {
-		http.Error(w, "Wrong username", http.StatusBadRequest)
+		http.Error(w, "Wrong username", 400)
 		return
 	}
 	code := r.URL.Query().Get("code")
@@ -101,7 +101,7 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		slog.Warn(err.Error())
-		http.Error(w, "Couldn't parse form", http.StatusBadRequest)
+		http.Error(w, "Couldn't parse form", 400)
 		return
 	}
 
@@ -113,7 +113,7 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 		validator.PasswordSchema.Validate(password, false),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, http.StatusBadRequest)
+		jsonResponse(w, issues, 400)
 		return
 	}
 
@@ -131,7 +131,7 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		sqliteErr, isSqliteErr := errors.AsType[sqlite3.Error](err)
 		if isSqliteErr && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
-			http.Error(w, "User with same username already exists", http.StatusConflict)
+			http.Error(w, "User with same username already exists", 409)
 		} else {
 			handleUnexpectedError(w, err)
 		}
@@ -143,7 +143,7 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		slog.Warn(err.Error())
-		http.Error(w, "Invalid form", http.StatusBadRequest)
+		http.Error(w, "Invalid form", 400)
 		return
 	}
 
@@ -155,13 +155,13 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 		validator.PasswordSchema.Validate(password, false),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, http.StatusBadRequest)
+		jsonResponse(w, issues, 400)
 		return
 	}
 
 	badLogin := func() {
 		time.Sleep(time.Duration(rand.Intn(2000)) * time.Millisecond)
-		http.Error(w, "Bad login", http.StatusUnauthorized)
+		http.Error(w, "Bad login", 401)
 	}
 
 	type UserRecord struct {
@@ -236,7 +236,7 @@ func (env *Handler) delete(w http.ResponseWriter, r *http.Request) {
 
 func (env *Handler) getUserID(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
-	textResponse(w, fmt.Sprintf("%d", userId), http.StatusOK)
+	textResponse(w, fmt.Sprintf("%d", userId), 200)
 }
 
 func (env *Handler) getUserInfo(w http.ResponseWriter, r *http.Request) {
@@ -253,7 +253,7 @@ func (env *Handler) getUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.Online = true
-	jsonResponse(w, user, http.StatusOK)
+	jsonResponse(w, user, 200)
 }
 
 func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
@@ -262,7 +262,7 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		slog.Warn(err.Error())
-		http.Error(w, "Invalid form", http.StatusBadRequest)
+		http.Error(w, "Invalid form", 400)
 		return
 	}
 
@@ -272,7 +272,7 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 		validator.UsernameSchema.Validate(displayName, true),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, http.StatusBadRequest)
+		jsonResponse(w, issues, 400)
 		return
 	}
 
@@ -324,7 +324,7 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 	file, _, err := r.FormFile("file")
 	if err != nil {
 		slog.Warn(err.Error())
-		http.Error(w, "Invalid uploaded file", http.StatusBadRequest)
+		http.Error(w, "Invalid uploaded file", 400)
 		return
 	}
 
@@ -339,7 +339,7 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		_, isImageFormatError := errors.AsType[*ImageFormatError](err)
 		if isImageFormatError {
-			http.Error(w, "Uploaded picture format isn't supported", http.StatusBadRequest)
+			http.Error(w, "Uploaded picture format isn't supported", 400)
 		} else {
 			handleUnexpectedError(w, err)
 		}
@@ -354,7 +354,7 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 
 	// TODO emit change
 
-	textResponse(w, fileName, http.StatusOK)
+	textResponse(w, fileName, 200)
 }
 
 func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
@@ -368,7 +368,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
 		slog.Warn(err.Error())
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), 400)
 		return
 	}
 	p.Name = strings.TrimSpace(p.Name)
@@ -377,7 +377,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 		validator.ServerNameSchema.Validate(p.Name, true),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, http.StatusBadRequest)
+		jsonResponse(w, issues, 400)
 		return
 	}
 
@@ -472,7 +472,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		validator.TextMessageSchema.Validate(message, true),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, http.StatusBadRequest)
+		jsonResponse(w, issues, 400)
 		return
 	}
 
@@ -570,7 +570,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		messageId, err = strconv.ParseInt(messageIdStr, 10, 64)
 		if err != nil {
 			slog.Warn(err.Error())
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), 400)
 			return
 		}
 
@@ -582,7 +582,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 			const q = queryBase + " AND m.id > ? ORDER by m.id ASC LIMIT ?"
 			messages, err = getMessagesFromDatabase(env.db, q, channelId, messageId, limit)
 		default:
-			http.Error(w, "Unknown direction value", http.StatusBadRequest)
+			http.Error(w, "Unknown direction value", 400)
 			return
 		}
 	} else { // if just getting last ones
@@ -610,7 +610,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	// if sessionIdStr != "" && messageIdStr == "" {
 	// 	sessionId, err := strconv.ParseInt(sessionIdStr, 10, 64)
 	// 	if err != nil {
-	// 		http.Error(w, err.Error(), http.StatusBadRequest)
+	// 		http.Error(w, err.Error(), 400)
 	// 		return
 	// 	}
 	// 	env.sm.Subscribe(sessionId, channelId)
@@ -622,14 +622,14 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 	fileName := r.PathValue("fileName")
 	if fileName == "" {
-		http.Error(w, "Missing filename parameter", http.StatusBadRequest)
+		http.Error(w, "Missing filename parameter", 400)
 		return
 	}
 
 	// re := regexp.MustCompile(`^[a-fA-F0-9]{64}\.(?:jpg|webp)$`)
 	re := regexp.MustCompile(`^[a-fA-F0-9]{64}\.jpg$`)
 	if !re.MatchString(fileName) {
-		http.Error(w, "Invalid filename", http.StatusBadRequest)
+		http.Error(w, "Invalid filename", 400)
 		return
 	}
 
@@ -647,7 +647,7 @@ func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 
 	// validate optional size parameter
 	if sizeStr != "80" && sizeStr != "96" {
-		http.Error(w, "Unsupported size parameter", http.StatusBadRequest)
+		http.Error(w, "Unsupported size parameter", 400)
 		return
 	}
 
@@ -670,7 +670,7 @@ func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 	_, err = os.Stat(originalFilePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			http.Error(w, "", http.StatusNotFound)
+			http.Error(w, "", 404)
 		} else {
 			handleUnexpectedError(w, err)
 		}
