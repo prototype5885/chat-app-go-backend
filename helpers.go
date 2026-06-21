@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"database/sql"
 	"encoding/json"
@@ -11,10 +12,26 @@ import (
 )
 
 func jsonResponse(w http.ResponseWriter, data any, statusCode int) {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		handleUnexpectedError(w, err)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 
-	err := json.NewEncoder(w).Encode(data)
+	// if data is an array and is empty, set jsonData to '[]'
+	// if v := reflect.ValueOf(data); v.Kind() == reflect.Slice && v.IsNil() {
+	// 	jsonData = []byte("[]")
+	// }
+
+	// if jsonData is string 'null', replace it with '[]'
+	if bytes.Equal(jsonData, []byte("null")) {
+		jsonData = []byte("[]")
+	}
+
+	_, err = w.Write(jsonData)
 	if err != nil {
 		slog.Warn(err.Error())
 	}
