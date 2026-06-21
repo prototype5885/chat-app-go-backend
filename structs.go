@@ -25,7 +25,7 @@ type Handler struct {
 // }
 
 type UserDatabase struct {
-	Id           string  `json:"id"`
+	Id           int64   `json:"id"`
 	Username     string  `json:"username"`
 	DisplayName  string  `json:"display_name"`
 	Picture      *string `json:"picture,omitempty"`
@@ -34,8 +34,8 @@ type UserDatabase struct {
 }
 
 type ServerDatabase struct {
-	Id      string  `json:"id"`
-	OwnerID string  `json:"owner_id"`
+	Id      int64   `json:"id"`
+	OwnerID int64   `json:"owner_id"`
 	Name    string  `json:"name"`
 	Picture *string `json:"picture,omitempty"`
 	Banner  *string `json:"banner,omitempty"`
@@ -43,15 +43,15 @@ type ServerDatabase struct {
 }
 
 type ChannelDatabase struct {
-	Id       string `json:"id"`
-	ServerId string `json:"server_id"`
+	Id       int64  `json:"id"`
+	ServerId int64  `json:"server_id"`
 	Name     string `json:"name"`
 }
 
 type MessageDatabase struct {
-	Id              string  `json:"id"`
-	SenderId        string  `json:"sender_id"`
-	ChannelId       string  `json:"channel_id"`
+	Id              int64   `json:"id"`
+	SenderId        int64   `json:"sender_id"`
+	ChannelId       int64   `json:"channel_id"`
 	Message         string  `json:"message"`
 	AttachmentCount *int    `json:"attachment_count,omitempty"`
 	Edited          *string `json:"edited,omitempty"`
@@ -63,7 +63,7 @@ type CreateServerReq struct {
 
 // DTOs
 type UserResponse struct {
-	Id           string  `json:"id"`
+	Id           int64   `json:"id"`
 	Username     string  `json:"username"`
 	DisplayName  string  `json:"display_name"`
 	Picture      *string `json:"picture,omitempty"`
@@ -77,9 +77,9 @@ type Attachment struct {
 }
 
 type MessageResponse struct {
-	Id              string       `json:"id"`
-	SenderId        string       `json:"sender_id"`
-	ChannelId       string       `json:"channel_id"`
+	Id              int64        `json:"id"`
+	SenderId        int64        `json:"sender_id"`
+	ChannelId       int64        `json:"channel_id"`
 	Message         string       `json:"message"`
 	AttachmentCount *int         `json:"-"`
 	Edited          *string      `json:"edited,omitempty"`

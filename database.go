@@ -209,7 +209,7 @@ func getMessagesFromDatabase(db *sql.DB, q string, args ...any) (messages []Mess
 	return
 }
 
-func getAttachmentsFromDatabase(db *sql.DB, messageId string) (attachments []Attachment, err error) {
+func getAttachmentsFromDatabase(db *sql.DB, messageId int64) (attachments []Attachment, err error) {
 	var rows *sql.Rows
 
 	const q = "SELECT name, file FROM attachments WHERE message_id = ?"
