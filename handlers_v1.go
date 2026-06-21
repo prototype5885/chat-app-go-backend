@@ -642,7 +642,6 @@ func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	sizeStr := queryParams.Get("size")
 
-	w.Header().Set("Cache-Control", "public, max-age=2592000, immutable")
 	originalFilePath := filepath.Join("public", "avatars", fileName)
 
 	// if requesting original size avatar
