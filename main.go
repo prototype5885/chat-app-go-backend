@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -87,9 +88,10 @@ func main() {
 
 	// setup http server
 	router := chi.NewRouter()
-	// router.Use(SetHeaderMw)
+	if printRequests, _ := strconv.ParseBool(os.Getenv("PRINT_REQUESTS")); printRequests {
+		router.Use(middleware.Logger)
+	}
 	router.Use(middleware.Recoverer)
-	router.Use(middleware.Logger)
 
 	router.Route("/api/v1", func(v1 chi.Router) {
 		v1.Get("/test", h.test)
