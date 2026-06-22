@@ -17,7 +17,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 			if errors.Is(err, http.ErrNoCookie) {
 				http.Error(w, "No token", 401)
 			} else {
-				handleUnexpectedError(w, err)
+				unexpectedErrorResponse(w, err)
 			}
 			return
 		}
@@ -29,7 +29,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 				http.SetCookie(w, cookie)
 				http.Error(w, "Token not found", 401)
 			} else {
-				handleUnexpectedError(w, err)
+				unexpectedErrorResponse(w, err)
 			}
 			return
 		}
@@ -44,7 +44,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 				case errors.Is(err, context.Canceled):
 					break
 				default:
-					handleUnexpectedError(w, err)
+					unexpectedErrorResponse(w, err)
 				}
 				return
 			}
@@ -65,7 +65,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 		} else if secondsUntilExp < (60*60*24)*(TokenLifetimeDays-1) { // if it's been at least 1 day since token exp was updated
 			err := updateTokenExpiration(env.db, tokenCookie.Value)
 			if err != nil {
-				handleUnexpectedError(w, err)
+				unexpectedErrorResponse(w, err)
 				return
 			}
 			cookie := setTokenCookie(tokenCookie.Value, TokenLifetimeSeconds)
@@ -97,7 +97,7 @@ func (env *Handler) IsServerOwnerMw(next http.Handler) http.Handler {
 		var isOwner bool
 		err = row.Scan(&isOwner)
 		if err != nil {
-			handleUnexpectedError(w, err)
+			unexpectedErrorResponse(w, err)
 			return
 		}
 
@@ -138,7 +138,7 @@ func (env *Handler) HasServerAccessMw(next http.Handler) http.Handler {
 		var hasAccess bool
 		err = row.Scan(&hasAccess)
 		if err != nil {
-			handleUnexpectedError(w, err)
+			unexpectedErrorResponse(w, err)
 			return
 		}
 
@@ -178,7 +178,7 @@ func (env *Handler) IsChannelOwnerMw(next http.Handler) http.Handler {
 		var isOwner bool
 		err = row.Scan(&isOwner)
 		if err != nil {
-			handleUnexpectedError(w, err)
+			unexpectedErrorResponse(w, err)
 			return
 		}
 
@@ -220,7 +220,7 @@ func (env *Handler) HasChannelAccessMw(next http.Handler) http.Handler {
 		var hasAccess bool
 		err = row.Scan(&hasAccess)
 		if err != nil {
-			handleUnexpectedError(w, err)
+			unexpectedErrorResponse(w, err)
 			return
 		}
 

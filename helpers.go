@@ -14,7 +14,7 @@ import (
 func jsonResponse(w http.ResponseWriter, data any, statusCode int) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -47,7 +47,7 @@ func textResponse(w http.ResponseWriter, text string, statusCode int) {
 	}
 }
 
-func handleUnexpectedError(w http.ResponseWriter, err error) {
+func unexpectedErrorResponse(w http.ResponseWriter, err error) {
 	// if errors.Is(err, context.Canceled) {
 	// 	return
 	// }

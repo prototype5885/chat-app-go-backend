@@ -119,7 +119,7 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 
 	hashedPassword, err := argon2id.CreateHash(password, argon2id.DefaultParams)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -133,7 +133,7 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 		if isSqliteErr && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
 			http.Error(w, "User with same username already exists", 409)
 		} else {
-			handleUnexpectedError(w, err)
+			unexpectedErrorResponse(w, err)
 		}
 		return
 	}
@@ -180,14 +180,14 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, sql.ErrNoRows):
 			badLogin()
 		default:
-			handleUnexpectedError(w, err)
+			unexpectedErrorResponse(w, err)
 		}
 		return
 	}
 
 	match, err := argon2id.ComparePasswordAndHash(password, record.Password)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 	if !match {
@@ -199,7 +199,7 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 	token := base64.RawURLEncoding.EncodeToString(hash)
 	err = insertToken(env.db, token, record.Id)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -210,13 +210,13 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	token, err := r.Cookie("token")
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
 	err = deleteToken(env.db, token.Value)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -229,7 +229,7 @@ func (env *Handler) delete(w http.ResponseWriter, r *http.Request) {
 
 	_, err := env.db.Exec("DELETE FROM users WHERE id = ?", userId)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 }
@@ -248,7 +248,7 @@ func (env *Handler) getUserInfo(w http.ResponseWriter, r *http.Request) {
 	var user UserResponse
 	err := row.Scan(&user.Id, &user.Username, &user.DisplayName, &user.Picture, &user.CustomStatus)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -278,7 +278,7 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := env.db.Begin()
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 	defer rollbackTx(tx)
@@ -287,7 +287,7 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 		if displayName != "" {
 			_, err := tx.Exec("UPDATE users SET display_name = ? WHERE id = ?", displayName, userId)
 			if err != nil {
-				handleUnexpectedError(w, err)
+				unexpectedErrorResponse(w, err)
 				return
 			}
 		}
@@ -295,7 +295,7 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	err = tx.Commit()
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -347,14 +347,14 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 		if isImageFormatError {
 			http.Error(w, "Uploaded picture format isn't supported", 400)
 		} else {
-			handleUnexpectedError(w, err)
+			unexpectedErrorResponse(w, err)
 		}
 		return
 	}
 
 	_, err = env.db.Exec("UPDATE users SET picture = ? WHERE id = ?", fileName, userId)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -392,7 +392,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := env.db.Begin()
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 	defer func() {
@@ -407,7 +407,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 		serverId, userId, p.Name,
 	)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -416,13 +416,13 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 		channelId, serverId, "Default channel",
 	)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -434,7 +434,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 	var server ServerDatabase
 	err = row.Scan(&server.Id, &server.OwnerID, &server.Name, &server.Picture, &server.Banner, &server.Roles)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -446,7 +446,7 @@ func (env *Handler) getServers(w http.ResponseWriter, r *http.Request) {
 
 	servers, err := getServersFromDatabase(env.db, userId)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -458,7 +458,7 @@ func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
 
 	channels, err := getChannelsFromDatabase(env.db, serverId)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -489,7 +489,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := env.db.Begin()
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 	defer rollbackTx(tx)
@@ -501,7 +501,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 			messageId, userId, channelId, message, attachmentsCount,
 		)
 		if err != nil {
-			handleUnexpectedError(w, err)
+			unexpectedErrorResponse(w, err)
 			return
 		}
 	}
@@ -511,7 +511,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 
 	err = tx.Commit()
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -521,7 +521,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		row := env.db.QueryRow("SELECT display_name, picture FROM users WHERE id = ?", userId)
 		err := row.Scan(&displayName, &picture)
 		if err != nil {
-			handleUnexpectedError(w, err)
+			unexpectedErrorResponse(w, err)
 			return
 		}
 	}
@@ -596,7 +596,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		messages, err = getMessagesFromDatabase(env.db, q, channelId, limit)
 	}
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -605,7 +605,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		if *messages[i].AttachmentCount > 0 {
 			messages[i].Attachments, err = getAttachmentsFromDatabase(env.db, messages[i].Id)
 			if err != nil {
-				handleUnexpectedError(w, err)
+				unexpectedErrorResponse(w, err)
 				return
 			}
 		}
@@ -665,7 +665,7 @@ func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 	}
 	// continue if only file missing error
 	if !errors.Is(err, os.ErrNotExist) {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
@@ -677,7 +677,7 @@ func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, os.ErrNotExist) {
 			http.Error(w, "", 404)
 		} else {
-			handleUnexpectedError(w, err)
+			unexpectedErrorResponse(w, err)
 		}
 		return
 	}
@@ -685,13 +685,13 @@ func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 	// this shouldn't throw error as there are checks above
 	size, err := strconv.Atoi(sizeStr)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
 	err = generateResizedAvatar(fileName, size)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
