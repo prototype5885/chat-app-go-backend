@@ -456,7 +456,7 @@ func (env *Handler) getServerInfo(w http.ResponseWriter, r *http.Request) {
 	var s ServerDatabase
 	err = row.Scan(&s.Id, &s.OwnerID, &s.Name, &s.Picture, &s.Banner, &s.Roles)
 	if err != nil {
-		handleUnexpectedError(w, err)
+		unexpectedErrorResponse(w, err)
 		return
 	}
 
