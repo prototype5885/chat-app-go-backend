@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -83,7 +84,7 @@ func closeRows(rows *sql.Rows) {
 
 func rollbackTx(tx *sql.Tx) {
 	err := tx.Rollback()
-	if err != nil {
+	if !errors.Is(err, sql.ErrTxDone) {
 		slog.Error(err.Error())
 	}
 }
