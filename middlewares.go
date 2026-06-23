@@ -15,7 +15,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 		tokenCookie, err := r.Cookie("token")
 		if err != nil {
 			if errors.Is(err, http.ErrNoCookie) {
-				http.Error(w, "No token", 401)
+				http.Error(w, "No token", http.StatusUnauthorized)
 			} else {
 				unexpectedErrorResponse(w, err)
 			}
@@ -27,7 +27,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 			if errors.Is(err, sql.ErrNoRows) {
 				cookie := setTokenCookie("", -1)
 				http.SetCookie(w, cookie)
-				http.Error(w, "Token not found", 401)
+				http.Error(w, "Token not found", http.StatusUnauthorized)
 			} else {
 				unexpectedErrorResponse(w, err)
 			}
@@ -50,7 +50,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 			}
 			if banned {
 				// set delete token cookie header
-				http.Error(w, "User is banned", 401)
+				http.Error(w, "User is banned", http.StatusUnauthorized)
 				return
 			}
 		}
@@ -60,7 +60,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 		if secondsUntilExp < 0 { // minus means its past expiration
 			cookie := setTokenCookie("", -1)
 			http.SetCookie(w, cookie)
-			http.Error(w, "Token has expired", 401)
+			http.Error(w, "Token has expired", http.StatusUnauthorized)
 			return
 		} else if secondsUntilExp < (60*60*24)*(TokenLifetimeDays-1) { // if it's been at least 1 day since token exp was updated
 			err := updateTokenExpiration(env.db, tokenCookie.Value)
@@ -103,7 +103,7 @@ func (env *Handler) IsServerOwnerMw(next http.Handler) http.Handler {
 
 		if !isOwner {
 			text := fmt.Sprintf("You don't own server ID %d", serverId)
-			http.Error(w, text, 403)
+			http.Error(w, text, http.StatusForbidden)
 			return
 		}
 
@@ -144,7 +144,7 @@ func (env *Handler) HasServerAccessMw(next http.Handler) http.Handler {
 
 		if !hasAccess {
 			text := fmt.Sprintf("You have no access to server ID %d", serverId)
-			http.Error(w, text, 403)
+			http.Error(w, text, http.StatusForbidden)
 			return
 		}
 
@@ -184,7 +184,7 @@ func (env *Handler) IsChannelOwnerMw(next http.Handler) http.Handler {
 
 		if !isOwner {
 			text := fmt.Sprintf("You don't own channel ID %d", channelId)
-			http.Error(w, text, 403)
+			http.Error(w, text, http.StatusForbidden)
 			return
 		}
 
@@ -226,7 +226,7 @@ func (env *Handler) HasChannelAccessMw(next http.Handler) http.Handler {
 
 		if !hasAccess {
 			text := fmt.Sprintf("You have no access to channel ID %d", channelId)
-			http.Error(w, text, 403)
+			http.Error(w, text, http.StatusForbidden)
 			return
 		}
 

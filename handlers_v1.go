@@ -128,7 +128,7 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		if isDuplicateError(env.db, err) {
-			http.Error(w, "User with same username already exists", 409)
+			http.Error(w, "User with same username already exists", http.StatusConflict)
 		} else {
 			unexpectedErrorResponse(w, err)
 		}
@@ -158,7 +158,7 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 
 	badLogin := func() {
 		time.Sleep(time.Duration(rand.Intn(2000)) * time.Millisecond)
-		http.Error(w, "Bad login", 401)
+		http.Error(w, "Bad login", http.StatusUnauthorized)
 	}
 
 	type UserRecord struct {
@@ -324,7 +324,7 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 		slog.Warn(err.Error())
 
 		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
-			http.Error(w, "Uploaded avatar is larger than 1 mb", 413)
+			http.Error(w, "Uploaded avatar is larger than 1 mb", http.StatusRequestEntityTooLarge)
 		} else {
 			http.Error(w, "Invalid uploaded file", 400)
 		}
