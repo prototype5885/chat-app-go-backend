@@ -10,7 +10,7 @@ import (
 
 // service that cleans expired tokens and vacuums both database files
 func databaseCleanerService(closeServer context.CancelFunc, db *sql.DB) {
-	time.Sleep(10 * time.Minute)
+	time.Sleep(10 * time.Minute) // delay start for 10 mins
 
 	stmt, err := db.Prepare("DELETE FROM tokens WHERE expiration < ?")
 	if err != nil {
@@ -31,18 +31,28 @@ func databaseCleanerService(closeServer context.CancelFunc, db *sql.DB) {
 			closeServer()
 		}
 
-		_, err = db.Exec("VACUUM")
-		if err != nil {
-			slog.Error(err.Error())
-			closeServer()
+		if getDatabaseDriver(db) == driverSqlite {
+			_, err = db.Exec("VACUUM")
+			if err != nil {
+				slog.Error(err.Error())
+				closeServer()
+			}
+
+			slog.Info(
+				fmt.Sprintf(
+					"Cleaned %d expired tokens and vacuumed db file! Next run in %d hours.",
+					rowsAffected, hoursInterval,
+				),
+			)
+		} else {
+			slog.Info(
+				fmt.Sprintf(
+					"Cleaned %d expired tokens! Next run in %d hours.",
+					rowsAffected, hoursInterval,
+				),
+			)
 		}
 
-		slog.Info(
-			fmt.Sprintf(
-				"Cleaned %d expired tokens and vacuumed db files! Next run in %d hours.",
-				rowsAffected, hoursInterval,
-			),
-		)
 		time.Sleep(hoursInterval * time.Hour)
 	}
 }

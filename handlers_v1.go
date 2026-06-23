@@ -19,8 +19,6 @@ import (
 	"time"
 
 	"github.com/alexedwards/argon2id"
-
-	"github.com/mattn/go-sqlite3"
 )
 
 func (env *Handler) test(w http.ResponseWriter, _ *http.Request) {
@@ -129,8 +127,7 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 		env.idGen.Generate().Int64(), username, username, hashedPassword,
 	)
 	if err != nil {
-		sqliteErr, isSqliteErr := errors.AsType[sqlite3.Error](err)
-		if isSqliteErr && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
+		if isDuplicateError(env.db, err) {
 			http.Error(w, "User with same username already exists", 409)
 		} else {
 			handleUnexpectedError(w, err)

@@ -3,33 +3,61 @@ package main
 import (
 	"chatapp/modules/validator"
 	"database/sql"
+	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
+
+	"github.com/go-sql-driver/mysql"
+	"github.com/mattn/go-sqlite3"
 )
 
+const driverSqlite = 0
+const driverMysql = 1
+
 func initDatabase() (db *sql.DB, err error) {
-	dbPath := filepath.Join("database", "database.db")
+	// if empty then sqlite will be used instead
+	mysqlConnString := os.Getenv("MYSQL_CONN_STRING")
 
-	err = os.MkdirAll(filepath.Dir(dbPath), 0755)
-	if err != nil {
-		return
+	if mysqlConnString == "" { // sqlite
+		dbPath := filepath.Join("database", "database.db")
+		err = os.MkdirAll(filepath.Dir(dbPath), 0755)
+		if err != nil {
+			return
+		}
+		db, err = sql.Open("sqlite3", dbPath)
+		if err != nil {
+			return
+		}
+
+		db.SetMaxOpenConns(1)
+
+		_, err = db.Exec(`
+			PRAGMA journal_mode = WAL;
+			PRAGMA synchronous = NORMAL;
+			PRAGMA foreign_keys = ON;
+		`)
+		if err != nil {
+			return
+		}
+	} else { // mysql or mariadb
+		db, err = sql.Open("mysql", mysqlConnString)
+		if err != nil {
+			return
+		}
+
+		db.SetMaxOpenConns(10)
+
+		err = db.Ping()
+		if err != nil {
+			return
+		}
 	}
 
-	db, err = sql.Open("sqlite3", dbPath)
-	if err != nil {
-		return
-	}
-	db.SetMaxOpenConns(1)
-
-	_, err = db.Exec(`
-		PRAGMA journal_mode = WAL;
-		PRAGMA synchronous = NORMAL;
-		PRAGMA foreign_keys = ON;
-	`)
-	if err != nil {
-		return
-	}
+	slog.Info(fmt.Sprintf("Database driver used: %s", reflect.TypeOf(db.Driver()).String()))
+	_ = getDatabaseDriver(db) // quick overkill check to see if database is really valid
 
 	_, err = db.Exec(fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS users (
@@ -229,4 +257,32 @@ func getAttachmentsFromDatabase(db *sql.DB, messageId int64) (attachments []Atta
 	}
 	err = rows.Err()
 	return
+}
+
+func getDatabaseDriver(db *sql.DB) int {
+	dbDriverStr := reflect.TypeOf(db.Driver()).String()
+
+	switch dbDriverStr {
+	case "*sqlite3.SQLiteDriver":
+		return driverSqlite
+	case "*mysql.MySQLDriver":
+		return driverMysql
+	default:
+		panic(fmt.Sprintf("Unknown database driver: %s", dbDriverStr))
+	}
+}
+
+func isDuplicateError(db *sql.DB, err error) bool {
+	dbDriver := getDatabaseDriver(db)
+
+	switch dbDriver {
+	case driverSqlite:
+		sqliteErr, _ := errors.AsType[sqlite3.Error](err)
+		return errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique)
+	case driverMysql:
+		mysqlErr, _ := errors.AsType[*mysql.MySQLError](err)
+		return mysqlErr.Number == 1062
+	default:
+		panic("How did it reach panic in isDuplicateError?")
+	}
 }
