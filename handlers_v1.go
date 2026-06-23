@@ -395,12 +395,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 		handleUnexpectedError(w, err)
 		return
 	}
-	defer func() {
-		err := tx.Rollback()
-		if err != nil {
-			slog.Error(err.Error())
-		}
-	}()
+	defer rollbackTx(tx)
 
 	_, err = tx.Exec(
 		"INSERT INTO servers (id, owner_id, name) VALUES (?, ?, ?)",
