@@ -98,7 +98,6 @@ func main() {
 		v1.With(h.AuthUserMw).Get("/test_auth", h.testAuth)
 		v1.Get("/sse", h.session)
 		v1.With(h.AuthUserMw).Get("/session", h.session)
-		// session
 		v1.Post("/user/register", h.register)
 		v1.Post("/user/login", h.login)
 		v1.With(h.AuthUserMw).Get("/user/logout", h.logout)
@@ -108,6 +107,7 @@ func main() {
 		v1.With(h.AuthUserMw).Patch("/user", h.updateUserInfo)
 		v1.With(h.AuthUserMw).Post("/user/upload/avatar", h.uploadUserAvatar)
 		v1.With(h.AuthUserMw).Post("/server", h.createServer)
+		v1.With(h.AuthUserMw).Get("/server/{serverId}", h.getServerInfo)
 		// get_server_info
 		// update_server_info
 		// upload_server_avatar

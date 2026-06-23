@@ -436,6 +436,36 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, server, 200)
 }
 
+func (env *Handler) getServerInfo(w http.ResponseWriter, r *http.Request) {
+	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+
+	serverIdStr := r.PathValue("serverId")
+	if serverIdStr == "" {
+		http.Error(w, "Missing server ID parameter", 400)
+		return
+	}
+	serverId, err := strconv.ParseInt(serverIdStr, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	const q = `
+		SELECT
+		id, owner_id, name, picture, banner, roles
+	 	FROM servers WHERE id = ? AND owner_id = ?`
+	row := env.db.QueryRow(q, serverId, userId)
+
+	var s ServerDatabase
+	err = row.Scan(&s.Id, &s.OwnerID, &s.Name, &s.Picture, &s.Banner, &s.Roles)
+	if err != nil {
+		handleUnexpectedError(w, err)
+		return
+	}
+
+	jsonResponse(w, s, 200)
+}
+
 func (env *Handler) getServers(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
