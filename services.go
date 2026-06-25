@@ -12,15 +12,10 @@ import (
 func databaseCleanerService(closeServer context.CancelFunc, db *sql.DB) {
 	time.Sleep(10 * time.Minute) // delay start for 10 mins
 
-	stmt, err := db.Prepare("DELETE FROM tokens WHERE expiration < ?")
-	if err != nil {
-		slog.Error(err.Error())
-		closeServer()
-	}
-
+	const q = "DELETE FROM tokens WHERE expiration < ?"
 	const hoursInterval = 4
 	for {
-		result, err := stmt.Exec(time.Now().Unix())
+		result, err := db.Exec(q, time.Now().Unix())
 		if err != nil {
 			slog.Error(err.Error())
 			closeServer()
