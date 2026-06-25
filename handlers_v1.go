@@ -266,7 +266,7 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 	displayName := strings.TrimSpace(r.FormValue("display_name"))
 
 	issues := validator.MergeValidationIssues(
-		validator.UsernameSchema.Validate(displayName, true),
+		validator.DisplaynameSchema.Validate(displayName, true),
 	)
 	if len(issues) != 0 {
 		jsonResponse(w, issues, 400)
@@ -624,7 +624,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 
 	// grab attachments for messages that have attachments
 	for i := range messages {
-		if *messages[i].AttachmentCount > 0 {
+		if messages[i].AttachmentCount != nil && *messages[i].AttachmentCount > 0 {
 			messages[i].Attachments, err = getAttachmentsFromDatabase(env.db, messages[i].Id)
 			if err != nil {
 				unexpectedErrorResponse(w, err)

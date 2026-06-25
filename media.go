@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"log/slog"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -118,7 +119,7 @@ func generateResizedAvatar(name string, size int) error {
 	defer func() {
 		err := originalFile.Close()
 		if err != nil {
-			panic(err.Error())
+			slog.Error(err.Error())
 		}
 	}()
 

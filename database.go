@@ -277,11 +277,11 @@ func isDuplicateError(db *sql.DB, err error) bool {
 
 	switch dbDriver {
 	case driverSqlite:
-		sqliteErr, _ := errors.AsType[sqlite3.Error](err)
-		return errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique)
+		sqliteErr, ok := errors.AsType[sqlite3.Error](err)
+		return ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique
 	case driverMysql:
-		mysqlErr, _ := errors.AsType[*mysql.MySQLError](err)
-		return mysqlErr.Number == 1062
+		mysqlErr, ok := errors.AsType[*mysql.MySQLError](err)
+		return ok && mysqlErr.Number == 1062
 	default:
 		panic("How did it reach panic in isDuplicateError?")
 	}
