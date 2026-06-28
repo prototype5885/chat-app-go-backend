@@ -594,6 +594,29 @@ func (env *Handler) getServers(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, servers, 200)
 }
 
+func (env *Handler) deleteServer(w http.ResponseWriter, r *http.Request) {
+	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
+
+	// TODO emit about deletion to affected users
+
+	result, err := env.db.Exec("DELETE FROM servers WHERE id = ? AND owner_id = ?", serverId, userId)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+	rowsDeleted, err := result.RowsAffected()
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+	if rowsDeleted != 1 {
+		err := fmt.Errorf("Expected to delete server ID %d in deleteServer handler, but affected rows value was %d", serverId, rowsDeleted)
+		unexpectedErrorResponse(w, err)
+		return
+	}
+}
+
 func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
 	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
 
