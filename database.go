@@ -3,15 +3,15 @@ package main
 import (
 	"chatapp/modules/validator"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 
-	"github.com/go-sql-driver/mysql"
-	"github.com/mattn/go-sqlite3"
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const driverSqlite = 0
@@ -277,11 +277,9 @@ func isDuplicateError(db *sql.DB, err error) bool {
 
 	switch dbDriver {
 	case driverSqlite:
-		sqliteErr, ok := errors.AsType[sqlite3.Error](err)
-		return ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique
+		return strings.Contains(err.Error(), "UNIQUE constraint failed")
 	case driverMysql:
-		mysqlErr, ok := errors.AsType[*mysql.MySQLError](err)
-		return ok && mysqlErr.Number == 1062
+		return strings.Contains(err.Error(), "Duplicate entry")
 	default:
 		panic("How did it reach panic in isDuplicateError?")
 	}

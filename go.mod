@@ -8,7 +8,7 @@ require (
 	github.com/go-chi/chi/v5 v5.3.0
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/joho/godotenv v1.5.1
-	github.com/mattn/go-sqlite3 v1.14.45
+	github.com/mattn/go-sqlite3 v1.14.47
 	golang.org/x/image v0.43.0
 )
 
