@@ -377,7 +377,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 	p.Name = strings.TrimSpace(p.Name)
 
 	issues := validator.MergeValidationIssues(
-		validator.ServerNameSchema.Validate(p.Name, true),
+		validator.ServerNameSchema.Validate(p.Name, false),
 	)
 	if len(issues) != 0 {
 		jsonResponse(w, issues, 400)
