@@ -655,6 +655,25 @@ func (env *Handler) createChannel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func (env *Handler) getChannelInfo(w http.ResponseWriter, r *http.Request) {
+	channelId := env.mustGetIdFromServerContext(r, ChannelIdKeyType{})
+
+	const q = `
+		SELECT
+		id, server_id, name
+	 	FROM channels WHERE id = ?`
+	row := env.db.QueryRow(q, channelId)
+
+	var c ChannelDatabase
+	err := row.Scan(&c.Id, &c.ServerId, &c.Name)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	jsonResponse(w, c, http.StatusOK)
+}
+
 func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
 	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
 
