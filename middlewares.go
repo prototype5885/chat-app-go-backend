@@ -40,12 +40,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 			row := env.db.QueryRow("SELECT banned FROM users WHERE id = ?", userId)
 			err := row.Scan(&banned)
 			if err != nil {
-				switch {
-				case errors.Is(err, context.Canceled):
-					break
-				default:
-					unexpectedErrorResponse(w, err)
-				}
+				unexpectedErrorResponse(w, err)
 				return
 			}
 			if banned {

@@ -49,10 +49,6 @@ func textResponse(w http.ResponseWriter, text string, statusCode int) {
 }
 
 func unexpectedErrorResponse(w http.ResponseWriter, err error) {
-	// if errors.Is(err, context.Canceled) {
-	// 	return
-	// }
-
 	http.Error(w, "", 500)
 	slog.Error(err.Error())
 }
