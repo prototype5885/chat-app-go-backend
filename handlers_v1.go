@@ -517,6 +517,71 @@ func (env *Handler) updateServerInfo(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, s, 200)
 }
 
+func (env *Handler) uploadServerAvatar(w http.ResponseWriter, r *http.Request) {
+	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1024*1024)
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		slog.Warn(err.Error())
+
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			http.Error(w, "Uploaded avatar is larger than 1 mb", http.StatusRequestEntityTooLarge)
+		} else {
+			http.Error(w, "Invalid uploaded file", 400)
+		}
+		return
+	}
+
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			slog.Error(err.Error())
+		}
+	}()
+
+	fileName, err := saveAvatar(file)
+	if err != nil {
+		_, isImageFormatError := errors.AsType[*ImageFormatError](err)
+		if isImageFormatError {
+			http.Error(w, "Uploaded picture format isn't supported", 400)
+		} else {
+			unexpectedErrorResponse(w, err)
+		}
+		return
+	}
+
+	const q = "UPDATE servers SET picture = ? WHERE id = ? AND owner_id = ?"
+	_, err = env.db.Exec(q, fileName, serverId, userId)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	// const q2 = `
+	// 	SELECT
+	// 	id, owner_id, name, picture, banner, roles
+	//  	FROM servers WHERE id = ? AND owner_id = ?`
+	// row := env.db.QueryRow(q2, serverId, userId)
+
+	// var s ServerDatabase
+	// err = row.Scan(&s.Id, &s.OwnerID, &s.Name, &s.Picture, &s.Banner, &s.Roles)
+	// if err != nil {
+	// 	unexpectedErrorResponse(w, err)
+	// 	return
+	// }
+
+	// sessions.emitToServerList(serverID, {
+	//   event: "server_info",
+	//   data: s,
+	// });
+
+	// TODO emit change
+
+	textResponse(w, fileName, 200)
+}
+
 func (env *Handler) getServers(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 

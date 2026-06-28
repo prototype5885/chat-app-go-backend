@@ -107,7 +107,7 @@ func main() {
 		v1.With(h.AuthUserMw).Post("/server", h.createServer)
 		v1.With(h.AuthUserMw, h.HasServerAccessMw).Get("/server/{serverId}", h.getServerInfo)
 		v1.With(h.AuthUserMw, h.IsServerOwnerMw).Patch("/server/{serverId}", h.updateServerInfo)
-		// upload_server_avatar
+		v1.With(h.AuthUserMw, h.IsServerOwnerMw).Post("/server/{serverId}/upload/avatar", h.uploadServerAvatar)
 		v1.With(h.AuthUserMw).Get("/servers", h.getServers)
 		// delete_server
 		// create_channel
