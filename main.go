@@ -105,9 +105,8 @@ func main() {
 		v1.With(h.AuthUserMw).Patch("/user", h.updateUserInfo)
 		v1.With(h.AuthUserMw).Post("/user/upload/avatar", h.uploadUserAvatar)
 		v1.With(h.AuthUserMw).Post("/server", h.createServer)
-		v1.With(h.AuthUserMw).Get("/server/{serverId}", h.getServerInfo)
-		// get_server_info
-		// update_server_info
+		v1.With(h.AuthUserMw, h.HasServerAccessMw).Get("/server/{serverId}", h.getServerInfo)
+		v1.With(h.AuthUserMw, h.IsServerOwnerMw).Patch("/server/{serverId}", h.updateServerInfo)
 		// upload_server_avatar
 		v1.With(h.AuthUserMw).Get("/servers", h.getServers)
 		// delete_server

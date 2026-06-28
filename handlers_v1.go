@@ -435,17 +435,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 
 func (env *Handler) getServerInfo(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
-
-	serverIdStr := r.PathValue("serverId")
-	if serverIdStr == "" {
-		http.Error(w, "Missing server ID parameter", 400)
-		return
-	}
-	serverId, err := strconv.ParseInt(serverIdStr, 10, 64)
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
+	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
 
 	const q = `
 		SELECT
@@ -454,11 +444,75 @@ func (env *Handler) getServerInfo(w http.ResponseWriter, r *http.Request) {
 	row := env.db.QueryRow(q, serverId, userId)
 
 	var s ServerDatabase
+	err := row.Scan(&s.Id, &s.OwnerID, &s.Name, &s.Picture, &s.Banner, &s.Roles)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	jsonResponse(w, s, 200)
+}
+
+func (env *Handler) updateServerInfo(w http.ResponseWriter, r *http.Request) {
+	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
+
+	err := r.ParseForm()
+	if err != nil {
+		slog.Warn(err.Error())
+		http.Error(w, "Invalid form", 400)
+		return
+	}
+
+	serverName := strings.TrimSpace(r.FormValue("name"))
+
+	issues := validator.MergeValidationIssues(
+		validator.ServerNameSchema.Validate(serverName, true),
+	)
+	if len(issues) != 0 {
+		jsonResponse(w, issues, 400)
+		return
+	}
+
+	tx, err := env.db.Begin()
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+	defer rollbackTx(tx)
+
+	if serverName != "" {
+		const q = "UPDATE servers SET name = ? WHERE id = ? AND owner_id = ?"
+		_, err := tx.Exec(q, serverName, serverId, userId)
+		if err != nil {
+			unexpectedErrorResponse(w, err)
+			return
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	const q = `
+		SELECT id, owner_id, name, picture, banner, roles 
+		FROM servers WHERE id = ?
+	`
+	row := env.db.QueryRow(q, serverId)
+
+	var s ServerDatabase
 	err = row.Scan(&s.Id, &s.OwnerID, &s.Name, &s.Picture, &s.Banner, &s.Roles)
 	if err != nil {
 		unexpectedErrorResponse(w, err)
 		return
 	}
+
+	// sessions.emit(userID, {
+	//   event: "server_info",
+	//   data: s,
+	// });
 
 	jsonResponse(w, s, 200)
 }
