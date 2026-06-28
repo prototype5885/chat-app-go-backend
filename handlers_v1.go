@@ -617,6 +617,44 @@ func (env *Handler) deleteServer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (env *Handler) createChannel(w http.ResponseWriter, r *http.Request) {
+	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
+
+	type Payload struct {
+		Name string `json:"name"`
+	}
+
+	var p Payload
+	err := json.NewDecoder(r.Body).Decode(&p)
+	if err != nil {
+		slog.Warn(err.Error())
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	p.Name = strings.TrimSpace(p.Name)
+
+	issues := validator.MergeValidationIssues(
+		validator.ChannelNameSchema.Validate(p.Name, false),
+	)
+	if len(issues) != 0 {
+		jsonResponse(w, issues, 400)
+		return
+	}
+
+	var channelId = env.idGen.Generate().Int64()
+
+	const q = "INSERT INTO channels (id, server_id, name) VALUES (?, ?, ?)"
+	_, err = env.db.Exec(q, channelId, serverId, p.Name)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	// TODO emit about channel creation
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
 	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
 
