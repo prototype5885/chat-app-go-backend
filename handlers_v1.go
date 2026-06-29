@@ -497,7 +497,7 @@ func (env *Handler) updateServerInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	const q = `
-		SELECT id, owner_id, name, picture, banner, roles 
+		SELECT id, owner_id, name, picture, banner, roles
 		FROM servers WHERE id = ?
 	`
 	row := env.db.QueryRow(q, serverId)
@@ -672,6 +672,66 @@ func (env *Handler) getChannelInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, c, http.StatusOK)
+}
+
+func (env *Handler) updateChannelInfo(w http.ResponseWriter, r *http.Request) {
+	channelId := env.mustGetIdFromServerContext(r, ChannelIdKeyType{})
+
+	err := r.ParseForm()
+	if err != nil {
+		slog.Warn(err.Error())
+		http.Error(w, "Invalid form", 400)
+		return
+	}
+
+	channelName := strings.TrimSpace(r.FormValue("name"))
+
+	issues := validator.MergeValidationIssues(
+		validator.ChannelNameSchema.Validate(channelName, true),
+	)
+	if len(issues) != 0 {
+		jsonResponse(w, issues, 400)
+		return
+	}
+
+	tx, err := env.db.Begin()
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+	defer rollbackTx(tx)
+
+	if channelName != "" {
+		const q = "UPDATE channels SET name = ? WHERE id = ?"
+		_, err := tx.Exec(q, channelName, channelId)
+		if err != nil {
+			unexpectedErrorResponse(w, err)
+			return
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	const q = "SELECT id, server_id, name FROM channels WHERE id = ?"
+	row := env.db.QueryRow(q, channelId)
+
+	var c ChannelDatabase
+	err = row.Scan(&c.Id, &c.ServerId, &c.Name)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	// sessions.emit(userID, {
+	//   event: "modify_channel",
+	//   data: c,
+	// });
+
+	jsonResponse(w, c, 200)
 }
 
 func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {

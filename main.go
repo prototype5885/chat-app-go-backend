@@ -112,7 +112,7 @@ func main() {
 		v1.With(h.AuthUserMw, h.IsServerOwnerMw).Delete("/server/{serverId}", h.deleteServer)
 		v1.With(h.AuthUserMw, h.IsServerOwnerMw).Post("/server/{serverId}/channel", h.createChannel)
 		v1.With(h.AuthUserMw, h.IsChannelOwnerMw).Get("/channel/{channelId}", h.getChannelInfo)
-		// update_channel_info
+		v1.With(h.AuthUserMw, h.IsChannelOwnerMw).Patch("/channel/{channelId}", h.updateChannelInfo)
 		v1.With(h.AuthUserMw, h.HasServerAccessMw).Get("/server/{serverId}/channels", h.getChannels)
 		// delete_channel
 		// get_members
