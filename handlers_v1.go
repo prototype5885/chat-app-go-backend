@@ -115,7 +115,13 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashedPassword, err := argon2id.CreateHash(password, argon2id.DefaultParams)
+	hashedPassword, err := argon2id.CreateHash(password, &argon2id.Params{
+		Memory:      64 * 1024,
+		Iterations:  3,
+		Parallelism: 4,
+		SaltLength:  16,
+		KeyLength:   32,
+	})
 	if err != nil {
 		unexpectedErrorResponse(w, err)
 		return
