@@ -940,6 +940,43 @@ func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func (env *Handler) deleteMessage(w http.ResponseWriter, r *http.Request) {
+	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+
+	messageIdStr := r.PathValue("messageId")
+	if messageIdStr == "" {
+		http.Error(w, "Missing message ID parameter", 400)
+		return
+	}
+	messageId, err := strconv.ParseInt(messageIdStr, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	const q = "DELETE FROM messages WHERE id = ? AND sender_id = ?"
+	result, err := env.db.Exec(q, messageId, userId)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+	if rowsAffected != 1 {
+		err := fmt.Errorf("Not authorised to delete message ID %d", messageId)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// TODO broadcast about delete
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	channelId := env.mustGetIdFromServerContext(r, ChannelIdKeyType{})
 

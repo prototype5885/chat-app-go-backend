@@ -118,7 +118,7 @@ func main() {
 		v1.With(h.AuthUserMw, h.HasServerAccessMw).Get("/server/{serverId}/members", h.getMembers)
 		v1.With(h.AuthUserMw, h.HasChannelAccessMw).Post("/channel/{channelId}/message", h.createMessage)
 		v1.With(h.AuthUserMw).Patch("/message/{messageId}", h.editMessage)
-		// delete_message
+		v1.With(h.AuthUserMw).Delete("/message/{messageId}", h.deleteMessage)
 		v1.With(h.AuthUserMw, h.HasChannelAccessMw).Get("/channel/{channelId}/messages", h.getMessages)
 		// typing
 		// get_attachment
