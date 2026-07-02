@@ -915,6 +915,11 @@ func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 	const q = "UPDATE messages SET message = ?, edited = ? WHERE id = ? AND sender_id = ?"
 
 	result, err := env.db.Exec(q, p.Message, time.Now().Unix(), messageId, userId)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
 	rowsUpdated, err := result.RowsAffected()
 	if err != nil {
 		unexpectedErrorResponse(w, err)
