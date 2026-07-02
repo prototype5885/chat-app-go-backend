@@ -93,11 +93,11 @@ func main() {
 
 	router.Route("/api/v1", func(v1 chi.Router) {
 		v1.Get("/test", h.test)
-		v1.With(h.AuthUserMw).Get("/test_auth", h.testAuth)
-		v1.Get("/sse", h.session)
-		v1.With(h.AuthUserMw).Get("/session", h.session)
 		v1.Post("/user/register", h.register)
 		v1.Post("/user/login", h.login)
+		v1.With(h.AuthUserMw).Get("/test_auth", h.testAuth)
+		v1.With(h.AuthUserMw).Get("/sse", h.session)
+		v1.With(h.AuthUserMw).Get("/session", h.session)
 		v1.With(h.AuthUserMw).Get("/user/logout", h.logout)
 		v1.With(h.AuthUserMw).Delete("/user/delete", h.delete)
 		v1.With(h.AuthUserMw).Get("/user_id", h.getUserID)
