@@ -82,19 +82,6 @@ func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 	<-r.Context().Done()
 }
 
-func (env *Handler) testName(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("name")
-	if name != "prototype585" {
-		http.Error(w, "Wrong username", 400)
-		return
-	}
-	code := r.URL.Query().Get("code")
-	_, err := fmt.Fprintf(w, "%s - %s", name, code)
-	if err != nil {
-		return
-	}
-}
-
 func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
