@@ -67,7 +67,11 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 			http.SetCookie(w, cookie)
 		}
 
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), UserIdKeyType{}, userId)))
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, UserIdKeyType{}, userId)
+		rNew := r.WithContext(ctx)
+
+		next.ServeHTTP(w, rNew)
 	})
 }
 
@@ -102,7 +106,11 @@ func (env *Handler) IsServerOwnerMw(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ServerIdKeyType{}, serverId)))
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, ServerIdKeyType{}, serverId)
+		rNew := r.WithContext(ctx)
+
+		next.ServeHTTP(w, rNew)
 	})
 }
 
@@ -143,7 +151,11 @@ func (env *Handler) HasServerAccessMw(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ServerIdKeyType{}, serverId)))
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, ServerIdKeyType{}, serverId)
+		rNew := r.WithContext(ctx)
+
+		next.ServeHTTP(w, rNew)
 	})
 }
 
@@ -229,7 +241,11 @@ func (env *Handler) HasChannelAccessMw(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ChannelIdKeyType{}, channelId)))
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, ChannelIdKeyType{}, channelId)
+		rNew := r.WithContext(ctx)
+
+		next.ServeHTTP(w, rNew)
 	})
 }
 
