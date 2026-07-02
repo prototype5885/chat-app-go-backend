@@ -163,27 +163,31 @@ func (env *Handler) IsChannelOwnerMw(next http.Handler) http.Handler {
 		}
 
 		q := `
-		SELECT EXISTS (
-			SELECT 1 FROM channels
+			SELECT server_id FROM channels
 			JOIN servers ON channels.server_id = servers.id
 			WHERE channels.id = ? AND servers.owner_id = ?
-		) as result`
+		`
 		row := env.db.QueryRow(q, channelId, userId)
 
-		var isOwner bool
-		err = row.Scan(&isOwner)
+		var serverId int64
+		err = row.Scan(&serverId)
 		if err != nil {
 			unexpectedErrorResponse(w, err)
 			return
 		}
 
-		if !isOwner {
+		if serverId == 0 {
 			text := fmt.Sprintf("You don't own channel ID %d", channelId)
 			http.Error(w, text, http.StatusForbidden)
 			return
 		}
 
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ChannelIdKeyType{}, channelId)))
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, ChannelIdKeyType{}, channelId)
+		ctx = context.WithValue(ctx, ServerIdKeyType{}, serverId)
+		rNew := r.WithContext(ctx)
+
+		next.ServeHTTP(w, rNew)
 	})
 }
 
