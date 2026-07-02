@@ -87,3 +87,11 @@ type MessageResponse struct {
 	Picture         *string      `json:"picture,omitempty"`
 	Attachments     []Attachment `json:"attachments"`
 }
+
+type MessageEditResponse struct {
+	Id        int64  `json:"id"`
+	SenderId  int64  `json:"sender_id"`
+	ChannelId int64  `json:"channel_id"`
+	Message   string `json:"message"`
+	Edited    string `json:"edited"`
+}

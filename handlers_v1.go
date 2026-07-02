@@ -877,6 +877,69 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(202)
 }
 
+func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
+	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+
+	messageIdStr := r.PathValue("messageId")
+	if messageIdStr == "" {
+		http.Error(w, "Missing message ID parameter", 400)
+		return
+	}
+	messageId, err := strconv.ParseInt(messageIdStr, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	type Payload struct {
+		Message string `json:"message"`
+	}
+
+	var p Payload
+	err = json.NewDecoder(r.Body).Decode(&p)
+	if err != nil {
+		slog.Warn(err.Error())
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	p.Message = strings.TrimSpace(p.Message)
+
+	issues := validator.MergeValidationIssues(
+		validator.TextMessageSchema.Validate(p.Message, false),
+	)
+	if len(issues) != 0 {
+		jsonResponse(w, issues, 400)
+		return
+	}
+
+	const q = "UPDATE messages SET message = ?, edited = ? WHERE id = ? AND sender_id = ?"
+
+	result, err := env.db.Exec(q, p.Message, time.Now().Unix(), messageId, userId)
+	rowsUpdated, err := result.RowsAffected()
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+	if rowsUpdated != 1 {
+		err := fmt.Errorf("Not authorised to edit message ID %d", messageId)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// row := env.db.QueryRow("SELECT id, sender_id, channel_id, message, edited FROM messages WHERE id = ?", messageId)
+
+	// var editedMsg MessageEditResponse
+	// err = row.Scan(&editedMsg.Id, &editedMsg.SenderId, &editedMsg.ChannelId, &editedMsg.Message, &editedMsg.Edited)
+	// if err != nil {
+	// 	unexpectedErrorResponse(w, err)
+	// 	return
+	// }
+
+	// TODO broadcast about edit
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	channelId := env.mustGetIdFromServerContext(r, ChannelIdKeyType{})
 
