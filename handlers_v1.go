@@ -781,6 +781,18 @@ func (env *Handler) deleteChannel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func (env *Handler) getMembers(w http.ResponseWriter, r *http.Request) {
+	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
+
+	members, err := getMembersFromDatabase(env.db, serverId)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	jsonResponse(w, members, http.StatusOK)
+}
+
 func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 	channelId := env.mustGetIdFromServerContext(r, ChannelIdKeyType{})

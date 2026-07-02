@@ -259,6 +259,38 @@ func getAttachmentsFromDatabase(db *sql.DB, messageId int64) (attachments []Atta
 	return
 }
 
+func getMembersFromDatabase(db *sql.DB, serverId int64) (users []UserResponse, err error) {
+	var rows *sql.Rows
+
+	const q = `
+		SELECT u.id, u.username, u.display_name, u.picture, u.custom_status
+		FROM users u JOIN servers s ON s.owner_id = u.id WHERE s.id = :s_id
+		UNION
+		SELECT u.id, u.username, u.display_name, u.picture, u.custom_status
+		FROM users u JOIN server_members sm ON sm.member_id = u.id WHERE sm.server_id = :s_id
+    `
+	rows, err = db.Query(q, serverId)
+	if err != nil {
+		return
+	}
+	defer closeRows(rows)
+
+	for rows.Next() {
+		var u UserResponse
+		err = rows.Scan(&u.Id, &u.Username, &u.DisplayName, &u.Picture, &u.CustomStatus)
+		if err != nil {
+			return
+		}
+
+		u.Online = true // TODO check if online
+
+		users = append(users, u)
+
+	}
+	err = rows.Err()
+	return
+}
+
 func getDatabaseDriver(db *sql.DB) int {
 	dbDriverStr := reflect.TypeOf(db.Driver()).String()
 
