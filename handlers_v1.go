@@ -1055,6 +1055,40 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, messages, 200)
 }
 
+func (env *Handler) typing(w http.ResponseWriter, r *http.Request) {
+	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+	// channelId := env.mustGetIdFromServerContext(r, ChannelIdKeyType{})
+	action := r.PathValue("value")
+
+	type ResponsePayload struct {
+		Action      string  `json:"action"`
+		Id          int64   `json:"id"`
+		DisplayName *string `json:"display_name,omitempty"`
+	}
+
+	data := ResponsePayload{Id: userId}
+
+	switch action {
+	case "start":
+		row := env.db.QueryRow("SELECT display_name FROM users WHERE id = ?", userId)
+		err := row.Scan(&data.DisplayName)
+		if err != nil {
+			unexpectedErrorResponse(w, err)
+			return
+		}
+		data.Action = "start"
+	case "stop":
+		data.Action = "stop"
+	default:
+		http.Error(w, "unsupported action parameter", http.StatusBadRequest)
+		return
+	}
+
+	// TODO emit to channel
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 	fileName := r.PathValue("fileName")
 	if fileName == "" {
