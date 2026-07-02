@@ -752,7 +752,33 @@ func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
 	// TODO set current server of session
 
 	jsonResponse(w, channels, 200)
+}
 
+func (env *Handler) deleteChannel(w http.ResponseWriter, r *http.Request) {
+	// userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+	// serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
+	channelId := env.mustGetIdFromServerContext(r, ChannelIdKeyType{})
+
+	result, err := env.db.Exec("DELETE FROM channels WHERE id = ?", channelId)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	rowsDeleted, err := result.RowsAffected()
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+	if rowsDeleted != 1 {
+		err := fmt.Errorf("Expected to delete channel ID %d in deleteChannel handler, but affected rows value was %d", channelId, rowsDeleted)
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	// TODO emit to server id
+
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
