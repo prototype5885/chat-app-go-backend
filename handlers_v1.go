@@ -617,7 +617,7 @@ func (env *Handler) deleteServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rowsDeleted != 1 {
-		err := fmt.Errorf("Expected to delete server ID %d in deleteServer handler, but affected rows value was %d", serverId, rowsDeleted)
+		err := fmt.Errorf("expected to delete server ID %d in deleteServer handler, but affected rows value was %d", serverId, rowsDeleted)
 		unexpectedErrorResponse(w, err)
 		return
 	}
@@ -771,7 +771,7 @@ func (env *Handler) deleteChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rowsDeleted != 1 {
-		err := fmt.Errorf("Expected to delete channel ID %d in deleteChannel handler, but affected rows value was %d", channelId, rowsDeleted)
+		err := fmt.Errorf("expected to delete channel ID %d in deleteChannel handler, but affected rows value was %d", channelId, rowsDeleted)
 		unexpectedErrorResponse(w, err)
 		return
 	}
@@ -926,7 +926,7 @@ func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rowsUpdated != 1 {
-		err := fmt.Errorf("Not authorised to edit message ID %d", messageId)
+		err := fmt.Errorf("not authorised to edit message ID %d", messageId)
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
@@ -972,7 +972,7 @@ func (env *Handler) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rowsAffected != 1 {
-		err := fmt.Errorf("Not authorised to delete message ID %d", messageId)
+		err := fmt.Errorf("not authorised to delete message ID %d", messageId)
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
