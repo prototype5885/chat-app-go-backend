@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// service that cleans expired tokens and vacuums both database files
+// service that cleans expired tokens and vacuums sqlite database file
 func databaseCleanerService(closeServer context.CancelFunc, db *sql.DB) {
 	time.Sleep(10 * time.Minute) // delay start for 10 mins
 
