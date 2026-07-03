@@ -1045,7 +1045,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) typing(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 	// channelId := env.mustGetIdFromServerContext(r, ChannelIdKeyType{})
-	action := r.PathValue("value")
+	action := r.PathValue("action")
 
 	type ResponsePayload struct {
 		Action      string  `json:"action"`
