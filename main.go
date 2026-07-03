@@ -79,7 +79,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	sm := &SessionManager{db: db, ctx: ctx}
+	sm := NewSessionManager(idGen, db)
 
 	// this is used to inject dependencies into handlers
 	h := Handler{db: db, idGen: idGen, sm: sm}

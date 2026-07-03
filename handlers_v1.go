@@ -35,12 +35,12 @@ func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	// userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
-	hash := mustRandomHash(32)
-	sessionId := base64.URLEncoding.EncodeToString(hash)
+	sessionId := env.sm.NewSession(userId)
+	defer env.sm.RemoveSession(sessionId)
 
-	var sseMessage = func(event string, data []byte) []byte {
+	var sseMessage = func(event string, data string) []byte {
 		var msg []byte
 		if event != "" {
 			msg = fmt.Appendf(msg, "event: %s\n", event)
@@ -50,7 +50,7 @@ func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// send initial session id
-	_, err := w.Write(sseMessage("session_id", []byte(sessionId)))
+	_, err := w.Write(sseMessage("session_id", fmt.Sprint(sessionId)))
 	if err != nil {
 		slog.Warn(err.Error())
 		return
