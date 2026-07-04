@@ -194,7 +194,7 @@ func (sm *SessionManager) EmitToRoom(msg []byte, roomId int64) {
 	sm.mutex.RUnlock()
 }
 
-func (sm *SessionManager) EmitToServersUserIsIn(userId int64, msg []byte) error {
+func (sm *SessionManager) EmitToServersUserIsIn(msg []byte, userId int64) error {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 

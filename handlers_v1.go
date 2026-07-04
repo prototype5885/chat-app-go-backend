@@ -312,14 +312,18 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 		unexpectedErrorResponse(w, err)
 		return
 	}
-	sseMsg := SseMessage{event: "user_info", data: string(responseJson)}
 
-	// TODO emit to self
-
-	err = env.sm.EmitToServersUserIsIn(userId, sseMsg.Encode())
-	if err != nil {
-		unexpectedErrorResponse(w, err)
-		return
+	{
+		sseMsg := SseMessage{event: "self_user_info", data: string(responseJson)}
+		env.sm.EmitToRoom(sseMsg.Encode(), userId)
+	}
+	{
+		sseMsg := SseMessage{event: "user_info", data: string(responseJson)}
+		err = env.sm.EmitToServersUserIsIn(sseMsg.Encode(), userId)
+		if err != nil {
+			unexpectedErrorResponse(w, err)
+			return
+		}
 	}
 
 	// send json response without helper as struct has been serialized already
