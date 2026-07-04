@@ -620,7 +620,12 @@ func (env *Handler) deleteServer(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
 
-	// TODO emit about deletion to affected users
+	data := fmt.Sprintf(`{"id":%d}`, serverId)
+	sseMsg := SseMessage{event: "delete_server", data: data}
+	err := env.sm.EmitToServerMembers(sseMsg.Encode(), serverId)
+	if err != nil {
+		slog.Error(err.Error())
+	}
 
 	result, err := env.db.Exec("DELETE FROM servers WHERE id = ? AND owner_id = ?", serverId, userId)
 	if err != nil {
