@@ -358,7 +358,27 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO emit change
+	type UserAvatarResponse struct {
+		Id      int64  `json:"id"`
+		Picture string `json:"picture"`
+	}
+
+	avatarResponse := UserAvatarResponse{Id: userId, Picture: fileName}
+
+	avatarResponseJson, err := json.Marshal(avatarResponse)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	{
+		sseMsg := SseMessage{event: "self_user_info", data: string(avatarResponseJson)}
+		env.sm.EmitToRoom(sseMsg.Encode(), userId)
+	}
+	{
+		sseMsg := SseMessage{event: "user_info", data: string(avatarResponseJson)}
+		env.sm.EmitToServersUserIsIn(sseMsg.Encode(), userId)
+	}
 
 	textResponse(w, fileName, 200)
 }
