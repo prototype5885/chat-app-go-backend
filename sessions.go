@@ -195,17 +195,16 @@ func (sm *SessionManager) EmitToRoom(msg []byte, roomId int64) {
 }
 
 func (sm *SessionManager) EmitToServersUserIsIn(msg []byte, userId int64) error {
-	sm.mutex.RLock()
-	defer sm.mutex.RUnlock()
-
 	serverIds, err := getServersIdsFromDatabase(sm.db, userId)
 	if err != nil {
 		return err
 	}
 
+	sm.mutex.RLock()
 	for i := range serverIds {
 		sm.emit(msg, serverIds[i])
 	}
+	sm.mutex.RUnlock()
 
 	return nil
 }
