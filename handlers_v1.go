@@ -31,14 +31,21 @@ func (env *Handler) testAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		unexpectedErrorResponse(w, fmt.Errorf("flusher is not ok"))
+		return
+	}
 
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
-	sessionId := env.sm.NewSession(userId)
+	session, sessionId := env.sm.NewSession(userId)
 	defer env.sm.RemoveSession(sessionId)
+	defer slog.Debug(fmt.Sprintf("Finished SSE for session ID %d", sessionId))
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
 
 	// send initial session id
 	msg := SseMessage{event: "session_id", data: fmt.Sprint(sessionId)}
@@ -47,11 +54,11 @@ func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 		slog.Warn(err.Error())
 		return
 	}
-	w.(http.Flusher).Flush()
+	flusher.Flush()
 
 	for {
 		select {
-		case msg, ok := <-env.sm.sessions[sessionId].eventBus:
+		case msg, ok := <-session.eventBus:
 			if !ok {
 				return
 			}
@@ -60,34 +67,11 @@ func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 				slog.Warn(err.Error())
 				return
 			}
-			w.(http.Flusher).Flush()
+			flusher.Flush()
 		case <-r.Context().Done():
 			return
 		}
 	}
-
-	// pubSub := env.rdb.Subscribe(r.Context(), "test")
-	// for msg := range pubSub.Channel() {
-	// 	fmt.Println(msg.Channel, msg.Payload)
-	// 	w.Write([]byte(messageString("", msg.Payload)))
-	// 	w.(http.Flusher).Flush()
-	// }
-
-	// ch := make(chan *nats.Msg, 64)
-	// _, _ = env.nats.ChanSubscribe("test", ch)
-	// for msg := range ch {
-	// 	w.Write(sseMessage("", msg.Data))
-	// 	w.(http.Flusher).Flush()
-	// }
-
-	// pubSub := env.rdb.Subscribe(r.Context(), "mychannel1")
-
-	// for i := range 10 {
-	// 	w.Write([]byte(messageString("", i)))
-	// 	w.(http.Flusher).Flush()
-	// 	time.Sleep(2 * time.Second)
-	// }
-
 }
 
 func (env *Handler) register(w http.ResponseWriter, r *http.Request) {

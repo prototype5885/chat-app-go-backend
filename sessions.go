@@ -41,17 +41,18 @@ func NewSessionManager(idGen *snowflake.Node, db *sql.DB) *SessionManager {
 	}
 }
 
-func (sm *SessionManager) NewSession(userId int64) int64 {
+func (sm *SessionManager) NewSession(userId int64) (Session, int64) {
 	sm.mutex.Lock()
-	defer sm.mutex.Unlock()
 
 	sessionId := sm.idGen.Generate().Int64()
 
-	// add to sessions
-	sm.sessions[sessionId] = Session{
+	session := Session{
 		userId:   userId,
-		eventBus: make(chan []byte),
+		eventBus: make(chan []byte, 32),
 	}
+
+	// add to sessions
+	sm.sessions[sessionId] = session
 
 	// subscribe for events sent to own user ID
 	sm.enterRoom(sessionId, 0, userId)
@@ -62,10 +63,10 @@ func (sm *SessionManager) NewSession(userId int64) int64 {
 		sm.onlineUsers[userId] = struct{}{}
 		// TODO emit about online
 	}
+	sm.mutex.Unlock()
 
 	slog.Debug(fmt.Sprintf("New session %d for user ID %d", sessionId, userId))
-
-	return sessionId
+	return session, sessionId
 }
 
 func (sm *SessionManager) RemoveSession(sessionId int64) {
@@ -107,6 +108,14 @@ func (sm *SessionManager) RemoveSession(sessionId int64) {
 	}
 
 	slog.Debug(fmt.Sprintf("Removed session %d of user ID %d", sessionId, userId))
+}
+
+func (sm *SessionManager) GetSession(sessionId int64) (Session, bool) {
+	sm.mutex.RLock()
+	session, exists := sm.sessions[sessionId]
+	sm.mutex.RUnlock()
+
+	return session, exists
 }
 
 func (sm *SessionManager) isUserOnline(userId int64) bool {
@@ -178,13 +187,12 @@ func (sm *SessionManager) emit(msg []byte, roomId int64) {
 		return
 	}
 
-	if len(listeners) == 0 {
-		slog.Error(fmt.Sprintf("Room ID %d isn't supposed to exist, it has no listeners", roomId))
-		return
-	}
-
 	for sessionId := range listeners {
-		sm.sessions[sessionId].eventBus <- msg
+		select {
+		case sm.sessions[sessionId].eventBus <- msg:
+		default:
+			slog.Warn(fmt.Sprintf("dropping message for session %d, it's chan buffer is full", sessionId))
+		}
 	}
 }
 
