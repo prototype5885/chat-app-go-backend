@@ -75,6 +75,36 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 	})
 }
 
+func (env *Handler) AuthSessionIdMw(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+
+		sessionIdStr := r.Header.Get("Session-Id")
+		if sessionIdStr == "" {
+			http.Error(w, "Missing Session ID header", http.StatusBadRequest)
+			return
+		}
+
+		sessionId, err := strconv.ParseInt(sessionIdStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		session, exists := env.sm.sessions[sessionId]
+		if exists && session.userId != userId {
+			http.Error(w, "Fabricated session ID", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, SessionIdKeyType{}, sessionId)
+		rNew := r.WithContext(ctx)
+
+		next.ServeHTTP(w, rNew)
+	})
+}
+
 func (env *Handler) IsServerOwnerMw(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})

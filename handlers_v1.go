@@ -40,22 +40,31 @@ func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 	sessionId := env.sm.NewSession(userId)
 	defer env.sm.RemoveSession(sessionId)
 
-	var sseMessage = func(event string, data string) []byte {
-		var msg []byte
-		if event != "" {
-			msg = fmt.Appendf(msg, "event: %s\n", event)
-		}
-		msg = fmt.Appendf(msg, "data: %s\n\n", data)
-		return msg
-	}
-
 	// send initial session id
-	_, err := w.Write(sseMessage("session_id", fmt.Sprint(sessionId)))
+	msg := SseMessage{event: "session_id", data: fmt.Sprint(sessionId)}
+	_, err := w.Write(msg.Encode())
 	if err != nil {
 		slog.Warn(err.Error())
 		return
 	}
 	w.(http.Flusher).Flush()
+
+	for {
+		select {
+		case msg, ok := <-env.sm.sessions[sessionId].eventBus:
+			if !ok {
+				return
+			}
+			_, err := w.Write(msg)
+			if err != nil {
+				slog.Warn(err.Error())
+				return
+			}
+			w.(http.Flusher).Flush()
+		case <-r.Context().Done():
+			return
+		}
+	}
 
 	// pubSub := env.rdb.Subscribe(r.Context(), "test")
 	// for msg := range pubSub.Channel() {
@@ -79,7 +88,6 @@ func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 	// 	time.Sleep(2 * time.Second)
 	// }
 
-	<-r.Context().Done()
 }
 
 func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
@@ -290,22 +298,36 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type ResponseData struct {
-		ID          int64  `json:"id"`
+		Id          int64  `json:"id"`
 		DisplayName string `json:"display_name,omitempty"`
 	}
 
-	// sessions.emit(userID, {
-	//   event: "self_user_info",
-	//   data: responseData,
-	// });
+	responseData := ResponseData{
+		Id:          userId,
+		DisplayName: displayName,
+	}
 
-	// sessions.emitToServersUserisOn(userID, {
-	//   event: "user_info",
-	//   data: responseData,
-	// });
+	responseJson, err := json.Marshal(responseData)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+	sseMsg := SseMessage{event: "user_info", data: string(responseJson)}
 
-	responseData := ResponseData{ID: userId, DisplayName: displayName}
-	jsonResponse(w, responseData, 200)
+	// TODO emit to self
+
+	err = env.sm.EmitToServersUserIsIn(userId, sseMsg.Encode())
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	// send json response without helper as struct has been serialized already
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(responseJson)
+	if err != nil {
+		slog.Warn(err.Error())
+	}
 }
 
 func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
@@ -729,6 +751,7 @@ func (env *Handler) updateChannelInfo(w http.ResponseWriter, r *http.Request) {
 
 func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
 	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
+	sessionId := env.mustGetIdFromServerContext(r, SessionIdKeyType{})
 
 	channels, err := getChannelsFromDatabase(env.db, serverId)
 	if err != nil {
@@ -736,7 +759,7 @@ func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO set current server of session
+	env.sm.SetServer(sessionId, serverId)
 
 	jsonResponse(w, channels, 200)
 }
@@ -838,21 +861,24 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// messageResponse := MessageResponse{
-	// 	Id:          fmt.Sprintf("%d", messageId),
-	// 	SenderId:    fmt.Sprintf("%d", userId),
-	// 	ChannelId:   fmt.Sprintf("%d", channelId),
-	// 	Message:     message,
-	// 	DisplayName: displayName,
-	// 	Picture:     picture,
-	// 	Attachments: []Attachment{},
-	// }
+	messageResponse := MessageResponse{
+		Id:          messageId,
+		SenderId:    userId,
+		ChannelId:   channelId,
+		Message:     message,
+		DisplayName: displayName,
+		Picture:     picture,
+		Attachments: []Attachment{},
+	}
 
-	// messageResponseJson, err := json.Marshal(messageResponse)
-	// if err != nil {
-	// internalServerErrorResponse(w, err)
-	// 	return
-	// }
+	messageResponseJson, err := json.Marshal(messageResponse)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	sseMsg := SseMessage{event: "create_message", data: string(messageResponseJson)}
+	env.sm.EmitToRoom(sseMsg.Encode(), channelId)
 
 	// subject := fmt.Sprintf("channel.%d.create_message", channelId)
 	// err = env.nats.Publish(subject, messageResponseJson)
@@ -1028,16 +1054,11 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// subscribe for events if it has session id in header and not the first request
-	// sessionIdStr := r.Header.Get("Session-Id")
-	// if sessionIdStr != "" && messageIdStr == "" {
-	// 	sessionId, err := strconv.ParseInt(sessionIdStr, 10, 64)
-	// 	if err != nil {
-	// 		http.Error(w, err.Error(), 400)
-	// 		return
-	// 	}
-	// 	env.sm.Subscribe(sessionId, channelId)
-	// }
+	// subscribe for events if first request
+	if messageIdStr == "" {
+		sessionId := env.mustGetIdFromServerContext(r, SessionIdKeyType{})
+		env.sm.SetChannel(sessionId, channelId)
+	}
 
 	jsonResponse(w, messages, 200)
 }

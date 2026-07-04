@@ -189,6 +189,33 @@ func getServersFromDatabase(db *sql.DB, userId int64) (servers []ServerDatabase,
 	return
 }
 
+func getServersIdsFromDatabase(db *sql.DB, userId int64) (serverIds []int64, err error) {
+	var rows *sql.Rows
+
+	const q = `
+		SELECT id FROM servers WHERE owner_id = ?
+		UNION
+		SELECT server_id FROM server_members WHERE member_id = ?
+	`
+
+	rows, err = db.Query(q, userId, userId)
+	if err != nil {
+		return
+	}
+	defer closeRows(rows)
+
+	for rows.Next() {
+		var serverId int64
+		err = rows.Scan(&serverId)
+		if err != nil {
+			return
+		}
+		serverIds = append(serverIds, serverId)
+	}
+	err = rows.Err()
+	return
+}
+
 func getChannelsFromDatabase(db *sql.DB, serverId int64) (channels []ChannelDatabase, err error) {
 	var rows *sql.Rows
 
