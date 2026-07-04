@@ -118,14 +118,6 @@ func (sm *SessionManager) GetSession(sessionId int64) (Session, bool) {
 	return session, exists
 }
 
-func (sm *SessionManager) isUserOnline(userId int64) bool {
-	sm.mutex.RLock()
-	_, isOnline := sm.onlineUsers[userId]
-	sm.mutex.RUnlock()
-
-	return isOnline
-}
-
 func (sm *SessionManager) SetServer(sessionId int64, newServerId int64) {
 	sm.mutex.Lock()
 
