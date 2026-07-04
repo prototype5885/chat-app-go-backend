@@ -12,13 +12,7 @@ import (
 	"reflect"
 )
 
-func jsonResponse(w http.ResponseWriter, data any, statusCode int) {
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		unexpectedErrorResponse(w, err)
-		return
-	}
-
+func jsonResponse(w http.ResponseWriter, data []byte, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 
@@ -28,14 +22,24 @@ func jsonResponse(w http.ResponseWriter, data any, statusCode int) {
 	// }
 
 	// if jsonData is string 'null', replace it with '[]'
-	if bytes.Equal(jsonData, []byte("null")) {
-		jsonData = []byte("[]")
+	if bytes.Equal(data, []byte("null")) {
+		data = []byte("[]")
 	}
 
-	_, err = w.Write(jsonData)
+	_, err := w.Write(data)
 	if err != nil {
 		slog.Warn(err.Error())
 	}
+}
+
+func jsonResponseStruct(w http.ResponseWriter, data any, statusCode int) {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	jsonResponse(w, jsonData, statusCode)
 }
 
 func textResponse(w http.ResponseWriter, text string, statusCode int) {

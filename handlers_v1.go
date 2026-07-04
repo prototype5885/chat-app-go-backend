@@ -90,7 +90,7 @@ func (env *Handler) register(w http.ResponseWriter, r *http.Request) {
 		validator.PasswordSchema.Validate(password, false),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, 400)
+		jsonResponseStruct(w, issues, 400)
 		return
 	}
 
@@ -137,7 +137,7 @@ func (env *Handler) login(w http.ResponseWriter, r *http.Request) {
 		validator.PasswordSchema.Validate(password, false),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, 400)
+		jsonResponseStruct(w, issues, 400)
 		return
 	}
 
@@ -235,7 +235,7 @@ func (env *Handler) getUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.Online = true
-	jsonResponse(w, user, 200)
+	jsonResponseStruct(w, user, 200)
 }
 
 func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
@@ -254,7 +254,7 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 		validator.DisplaynameSchema.Validate(displayName, true),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, 400)
+		jsonResponseStruct(w, issues, 400)
 		return
 	}
 
@@ -310,12 +310,7 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// send json response without helper as struct has been serialized already
-	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(responseJson)
-	if err != nil {
-		slog.Warn(err.Error())
-	}
+	jsonResponse(w, responseJson, http.StatusOK)
 }
 
 func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
@@ -403,7 +398,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 		validator.ServerNameSchema.Validate(p.Name, false),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, 400)
+		jsonResponseStruct(w, issues, 400)
 		return
 	}
 
@@ -453,7 +448,7 @@ func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonResponse(w, server, 200)
+	jsonResponseStruct(w, server, 200)
 }
 
 func (env *Handler) getServerInfo(w http.ResponseWriter, r *http.Request) {
@@ -473,7 +468,7 @@ func (env *Handler) getServerInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonResponse(w, s, 200)
+	jsonResponseStruct(w, s, 200)
 }
 
 func (env *Handler) updateServerInfo(w http.ResponseWriter, r *http.Request) {
@@ -493,7 +488,7 @@ func (env *Handler) updateServerInfo(w http.ResponseWriter, r *http.Request) {
 		validator.ServerNameSchema.Validate(serverName, true),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, 400)
+		jsonResponseStruct(w, issues, 400)
 		return
 	}
 
@@ -537,7 +532,7 @@ func (env *Handler) updateServerInfo(w http.ResponseWriter, r *http.Request) {
 	//   data: s,
 	// });
 
-	jsonResponse(w, s, 200)
+	jsonResponseStruct(w, s, 200)
 }
 
 func (env *Handler) uploadServerAvatar(w http.ResponseWriter, r *http.Request) {
@@ -614,7 +609,7 @@ func (env *Handler) getServers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonResponse(w, servers, 200)
+	jsonResponseStruct(w, servers, 200)
 }
 
 func (env *Handler) deleteServer(w http.ResponseWriter, r *http.Request) {
@@ -660,7 +655,7 @@ func (env *Handler) createChannel(w http.ResponseWriter, r *http.Request) {
 		validator.ChannelNameSchema.Validate(p.Name, false),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, 400)
+		jsonResponseStruct(w, issues, 400)
 		return
 	}
 
@@ -694,7 +689,7 @@ func (env *Handler) getChannelInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonResponse(w, c, http.StatusOK)
+	jsonResponseStruct(w, c, http.StatusOK)
 }
 
 func (env *Handler) updateChannelInfo(w http.ResponseWriter, r *http.Request) {
@@ -713,7 +708,7 @@ func (env *Handler) updateChannelInfo(w http.ResponseWriter, r *http.Request) {
 		validator.ChannelNameSchema.Validate(channelName, true),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, 400)
+		jsonResponseStruct(w, issues, 400)
 		return
 	}
 
@@ -754,7 +749,7 @@ func (env *Handler) updateChannelInfo(w http.ResponseWriter, r *http.Request) {
 	//   data: c,
 	// });
 
-	jsonResponse(w, c, 200)
+	jsonResponseStruct(w, c, 200)
 }
 
 func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
@@ -769,7 +764,7 @@ func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
 
 	env.sm.SetServer(sessionId, serverId)
 
-	jsonResponse(w, channels, 200)
+	jsonResponseStruct(w, channels, 200)
 }
 
 func (env *Handler) deleteChannel(w http.ResponseWriter, r *http.Request) {
@@ -808,7 +803,7 @@ func (env *Handler) getMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonResponse(w, members, http.StatusOK)
+	jsonResponseStruct(w, members, http.StatusOK)
 }
 
 func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
@@ -821,7 +816,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		validator.TextMessageSchema.Validate(message, true),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, 400)
+		jsonResponseStruct(w, issues, 400)
 		return
 	}
 
@@ -929,7 +924,7 @@ func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 		validator.TextMessageSchema.Validate(p.Message, false),
 	)
 	if len(issues) != 0 {
-		jsonResponse(w, issues, 400)
+		jsonResponseStruct(w, issues, 400)
 		return
 	}
 
@@ -1068,7 +1063,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		env.sm.SetChannel(sessionId, channelId)
 	}
 
-	jsonResponse(w, messages, 200)
+	jsonResponseStruct(w, messages, 200)
 }
 
 func (env *Handler) typing(w http.ResponseWriter, r *http.Request) {
