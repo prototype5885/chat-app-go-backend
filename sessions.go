@@ -194,10 +194,10 @@ func (sm *SessionManager) EmitToRoom(msg []byte, roomId int64) {
 	sm.mutex.RUnlock()
 }
 
-func (sm *SessionManager) EmitToServersUserIsIn(msg []byte, userId int64) error {
+func (sm *SessionManager) EmitToServersUserIsIn(msg []byte, userId int64) {
 	serverIds, err := getServersIdsFromDatabase(sm.db, userId)
 	if err != nil {
-		return err
+		slog.Error(err.Error())
 	}
 
 	sm.mutex.RLock()
@@ -205,14 +205,12 @@ func (sm *SessionManager) EmitToServersUserIsIn(msg []byte, userId int64) error 
 		sm.emit(msg, serverIds[i])
 	}
 	sm.mutex.RUnlock()
-
-	return nil
 }
 
-func (sm *SessionManager) EmitToServerMembers(msg []byte, serverId int64) error {
+func (sm *SessionManager) EmitToServerMembers(msg []byte, serverId int64) {
 	userIds, err := getMemberIdsFromDatabase(sm.db, sm, serverId)
 	if err != nil {
-		return err
+		slog.Error(err.Error())
 	}
 
 	sm.mutex.RLock()
@@ -220,6 +218,4 @@ func (sm *SessionManager) EmitToServerMembers(msg []byte, serverId int64) error 
 		sm.emit(msg, userIds[i])
 	}
 	sm.mutex.RUnlock()
-
-	return nil
 }

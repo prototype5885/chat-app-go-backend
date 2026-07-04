@@ -303,11 +303,7 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	{
 		sseMsg := SseMessage{event: "user_info", data: string(responseJson)}
-		err = env.sm.EmitToServersUserIsIn(sseMsg.Encode(), userId)
-		if err != nil {
-			unexpectedErrorResponse(w, err)
-			return
-		}
+		env.sm.EmitToServersUserIsIn(sseMsg.Encode(), userId)
 	}
 
 	jsonResponse(w, responseJson, http.StatusOK)
@@ -622,10 +618,7 @@ func (env *Handler) deleteServer(w http.ResponseWriter, r *http.Request) {
 
 	data := fmt.Sprintf(`{"id":%d}`, serverId)
 	sseMsg := SseMessage{event: "delete_server", data: data}
-	err := env.sm.EmitToServerMembers(sseMsg.Encode(), serverId)
-	if err != nil {
-		slog.Error(err.Error())
-	}
+	env.sm.EmitToServerMembers(sseMsg.Encode(), serverId)
 
 	result, err := env.db.Exec("DELETE FROM servers WHERE id = ? AND owner_id = ?", serverId, userId)
 	if err != nil {
