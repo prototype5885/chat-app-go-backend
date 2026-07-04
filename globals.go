@@ -49,3 +49,11 @@ var (
 	avatarFilesMutex        sync.Mutex
 	resizedAvatarFilesMutex sync.Mutex
 )
+
+const (
+	SERVERS_SLICE_CAP     = 25
+	CHANNELS_SLICE_CAP    = 10
+	MESSAGES_SLICE_CAP    = 100
+	ATTACHMENTS_SLICE_CAP = 5
+	MEMBERS_SLICE_CAP     = 25
+)

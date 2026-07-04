@@ -1008,7 +1008,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	messageIdStr := queryParams.Get("messageID")
 	direction := queryParams.Get("direction")
 
-	const limit = 100
+	const limit = MESSAGES_SLICE_CAP
 	var messages []MessageResponse
 	var err error
 

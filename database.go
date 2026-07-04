@@ -177,6 +177,8 @@ func getServersFromDatabase(db *sql.DB, userId int64) (servers []ServerDatabase,
 	}
 	defer closeRows(rows)
 
+	servers = make([]ServerDatabase, 0, SERVERS_SLICE_CAP)
+
 	for rows.Next() {
 		var s ServerDatabase
 		err = rows.Scan(&s.Id, &s.OwnerID, &s.Name, &s.Picture, &s.Banner, &s.Roles)
@@ -204,6 +206,8 @@ func getServersIdsFromDatabase(db *sql.DB, userId int64) (serverIds []int64, err
 	}
 	defer closeRows(rows)
 
+	serverIds = make([]int64, 0, SERVERS_SLICE_CAP)
+
 	for rows.Next() {
 		var serverId int64
 		err = rows.Scan(&serverId)
@@ -227,6 +231,8 @@ func getChannelsFromDatabase(db *sql.DB, serverId int64) (channels []ChannelData
 	}
 	defer closeRows(rows)
 
+	channels = make([]ChannelDatabase, 0, CHANNELS_SLICE_CAP)
+
 	for rows.Next() {
 		var c ChannelDatabase
 		err = rows.Scan(&c.Id, &c.ServerId, &c.Name)
@@ -248,6 +254,8 @@ func getMessagesFromDatabase(db *sql.DB, q string, args ...any) (messages []Mess
 		return
 	}
 	defer closeRows(rows)
+
+	messages = make([]MessageResponse, 0, MESSAGES_SLICE_CAP)
 
 	for rows.Next() {
 		var m MessageResponse
@@ -273,6 +281,8 @@ func getAttachmentsFromDatabase(db *sql.DB, messageId int64) (attachments []Atta
 		return
 	}
 	defer closeRows(rows)
+
+	attachments = make([]Attachment, 0, ATTACHMENTS_SLICE_CAP)
 
 	for rows.Next() {
 		var a Attachment
@@ -301,6 +311,8 @@ func getMembersFromDatabase(db *sql.DB, sm *SessionManager, serverId int64) (use
 		return
 	}
 	defer closeRows(rows)
+
+	users = make([]UserResponse, 0, MEMBERS_SLICE_CAP)
 
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
@@ -335,6 +347,8 @@ func getMemberIdsFromDatabase(db *sql.DB, sm *SessionManager, serverId int64) (u
 		return
 	}
 	defer closeRows(rows)
+
+	userIds = make([]int64, 0, MEMBERS_SLICE_CAP)
 
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
