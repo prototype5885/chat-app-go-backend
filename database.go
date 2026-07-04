@@ -302,6 +302,9 @@ func getMembersFromDatabase(db *sql.DB, sm *SessionManager, serverId int64) (use
 	}
 	defer closeRows(rows)
 
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+
 	for rows.Next() {
 		var u UserResponse
 		err = rows.Scan(&u.Id, &u.Username, &u.DisplayName, &u.Picture, &u.CustomStatus)
@@ -309,10 +312,44 @@ func getMembersFromDatabase(db *sql.DB, sm *SessionManager, serverId int64) (use
 			return
 		}
 
-		u.Online = sm.isUserOnline(u.Id)
+		_, u.Online = sm.onlineUsers[u.Id]
 
 		users = append(users, u)
 
+	}
+	err = rows.Err()
+	return
+}
+
+func getMemberIdsFromDatabase(db *sql.DB, sm *SessionManager, serverId int64) (userIds []int64, err error) {
+	var rows *sql.Rows
+
+	const q = `
+		SELECT owner_id AS user_id FROM servers WHERE id = ?
+		UNION
+		SELECT member_id AS user_id FROM server_members WHERE server_id = ?
+	`
+
+	rows, err = db.Query(q, serverId, serverId)
+	if err != nil {
+		return
+	}
+	defer closeRows(rows)
+
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+
+	for rows.Next() {
+		var userId int64
+		err = rows.Scan(&userId)
+		if err != nil {
+			return
+		}
+
+		_, isOnline := sm.onlineUsers[userId]
+		if isOnline {
+			userIds = append(userIds, userId)
+		}
 	}
 	err = rows.Err()
 	return

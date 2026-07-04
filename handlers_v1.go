@@ -527,12 +527,16 @@ func (env *Handler) updateServerInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// sessions.emit(userID, {
-	//   event: "server_info",
-	//   data: s,
-	// });
+	serverJson, err := json.Marshal(s)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
 
-	jsonResponseStruct(w, s, 200)
+	sseMsg := SseMessage{event: "server_info", data: string(serverJson)}
+	env.sm.EmitToServerMembers(sseMsg.Encode(), serverId)
+
+	jsonResponse(w, serverJson, 200)
 }
 
 func (env *Handler) uploadServerAvatar(w http.ResponseWriter, r *http.Request) {

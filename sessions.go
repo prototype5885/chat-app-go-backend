@@ -216,3 +216,18 @@ func (sm *SessionManager) EmitToServersUserIsIn(msg []byte, userId int64) error 
 
 	return nil
 }
+
+func (sm *SessionManager) EmitToServerMembers(msg []byte, serverId int64) error {
+	userIds, err := getMemberIdsFromDatabase(sm.db, sm, serverId)
+	if err != nil {
+		return err
+	}
+
+	sm.mutex.RLock()
+	for i := range userIds {
+		sm.emit(msg, userIds[i])
+	}
+	sm.mutex.RUnlock()
+
+	return nil
+}
