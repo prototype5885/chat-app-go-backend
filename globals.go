@@ -22,6 +22,7 @@ const (
 	DELETE_SERVER  = "delete_server"
 	MODIFY_CHANNEL = "modify_channel"
 	CREATE_MESSAGE = "create_message"
+	EDIT_MESSAGE   = "edit_message"
 )
 
 func (sseMsg *SseMessage) Encode() []byte {

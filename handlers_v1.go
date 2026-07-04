@@ -885,13 +885,6 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 	sseMsg := SseMessage{event: CREATE_MESSAGE, data: string(messageResponseJson)}
 	env.sm.EmitToRoom(sseMsg.Encode(), channelId)
 
-	// subject := fmt.Sprintf("channel.%d.create_message", channelId)
-	// err = env.nats.Publish(subject, messageResponseJson)
-	// if err != nil {
-	// internalServerErrorResponse(w, err)
-	// 	return
-	// }
-
 	w.WriteHeader(202)
 }
 
@@ -949,16 +942,23 @@ func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// row := env.db.QueryRow("SELECT id, sender_id, channel_id, message, edited FROM messages WHERE id = ?", messageId)
+	row := env.db.QueryRow("SELECT id, sender_id, channel_id, message, edited FROM messages WHERE id = ?", messageId)
 
-	// var editedMsg MessageEditResponse
-	// err = row.Scan(&editedMsg.Id, &editedMsg.SenderId, &editedMsg.ChannelId, &editedMsg.Message, &editedMsg.Edited)
-	// if err != nil {
-	// 	unexpectedErrorResponse(w, err)
-	// 	return
-	// }
+	var editedMsg MessageEditResponse
+	err = row.Scan(&editedMsg.Id, &editedMsg.SenderId, &editedMsg.ChannelId, &editedMsg.Message, &editedMsg.Edited)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
 
-	// TODO broadcast about edit
+	editedMsgJson, err := json.Marshal(editedMsg)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	sseMsg := SseMessage{event: EDIT_MESSAGE, data: string(editedMsgJson)}
+	env.sm.EmitToRoom(sseMsg.Encode(), editedMsg.ChannelId)
 
 	w.WriteHeader(http.StatusAccepted)
 }
