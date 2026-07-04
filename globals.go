@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -26,12 +25,23 @@ const (
 )
 
 func (sseMsg *SseMessage) Encode() []byte {
-	var msg []byte
+	size := len("data: \n\n") + len(sseMsg.data)
 	if sseMsg.event != "" {
-		msg = fmt.Appendf(msg, "event: %s\n", sseMsg.event)
+		size += len("event: \n") + len(sseMsg.event)
 	}
-	msg = fmt.Appendf(msg, "data: %s\n\n", sseMsg.data)
-	return msg
+
+	buf := make([]byte, 0, size)
+
+	if sseMsg.event != "" {
+		buf = append(buf, "event: "...)
+		buf = append(buf, sseMsg.event...)
+		buf = append(buf, '\n')
+	}
+	buf = append(buf, "data: "...)
+	buf = append(buf, sseMsg.data...)
+	buf = append(buf, '\n', '\n')
+
+	return buf
 }
 
 var (
