@@ -48,7 +48,7 @@ func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 
 	// send initial session id
-	msg := SseMessage{event: "session_id", data: fmt.Sprint(sessionId)}
+	msg := SseMessage{event: SESSION_ID, data: fmt.Sprint(sessionId)}
 	_, err := w.Write(msg.Encode())
 	if err != nil {
 		slog.Warn(err.Error())
@@ -298,11 +298,11 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	{
-		sseMsg := SseMessage{event: "self_user_info", data: string(responseJson)}
+		sseMsg := SseMessage{event: SELF_USER_INFO, data: string(responseJson)}
 		env.sm.EmitToRoom(sseMsg.Encode(), userId)
 	}
 	{
-		sseMsg := SseMessage{event: "user_info", data: string(responseJson)}
+		sseMsg := SseMessage{event: USER_INFO, data: string(responseJson)}
 		env.sm.EmitToServersUserIsIn(sseMsg.Encode(), userId)
 	}
 
@@ -363,11 +363,11 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	{
-		sseMsg := SseMessage{event: "self_user_info", data: string(avatarResponseJson)}
+		sseMsg := SseMessage{event: SELF_USER_INFO, data: string(avatarResponseJson)}
 		env.sm.EmitToRoom(sseMsg.Encode(), userId)
 	}
 	{
-		sseMsg := SseMessage{event: "user_info", data: string(avatarResponseJson)}
+		sseMsg := SseMessage{event: USER_INFO, data: string(avatarResponseJson)}
 		env.sm.EmitToServersUserIsIn(sseMsg.Encode(), userId)
 	}
 
@@ -529,7 +529,7 @@ func (env *Handler) updateServerInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sseMsg := SseMessage{event: "server_info", data: string(serverJson)}
+	sseMsg := SseMessage{event: SERVER_INFO, data: string(serverJson)}
 	env.sm.EmitToServerMembers(sseMsg.Encode(), serverId)
 
 	jsonResponse(w, serverJson, 200)
@@ -591,7 +591,7 @@ func (env *Handler) uploadServerAvatar(w http.ResponseWriter, r *http.Request) {
 	// }
 
 	// sessions.emitToServerList(serverID, {
-	//   event: "server_info",
+	//   event: SERVER_INFO,
 	//   data: s,
 	// });
 
@@ -617,7 +617,7 @@ func (env *Handler) deleteServer(w http.ResponseWriter, r *http.Request) {
 	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
 
 	data := fmt.Sprintf(`{"id":%d}`, serverId)
-	sseMsg := SseMessage{event: "delete_server", data: data}
+	sseMsg := SseMessage{event: DELETE_SERVER, data: data}
 	env.sm.EmitToServerMembers(sseMsg.Encode(), serverId)
 
 	result, err := env.db.Exec("DELETE FROM servers WHERE id = ? AND owner_id = ?", serverId, userId)
@@ -747,7 +747,7 @@ func (env *Handler) updateChannelInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// sessions.emit(userID, {
-	//   event: "modify_channel",
+	//   event: MODIFY_CHANNEL,
 	//   data: c,
 	// });
 
@@ -882,7 +882,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sseMsg := SseMessage{event: "create_message", data: string(messageResponseJson)}
+	sseMsg := SseMessage{event: CREATE_MESSAGE, data: string(messageResponseJson)}
 	env.sm.EmitToRoom(sseMsg.Encode(), channelId)
 
 	// subject := fmt.Sprintf("channel.%d.create_message", channelId)

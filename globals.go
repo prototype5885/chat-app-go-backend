@@ -15,6 +15,16 @@ type SseMessage struct {
 	data  string
 }
 
+const (
+	SESSION_ID     = "session_id"
+	SELF_USER_INFO = "self_user_info"
+	USER_INFO      = "user_info"
+	SERVER_INFO    = "server_info"
+	DELETE_SERVER  = "delete_server"
+	MODIFY_CHANNEL = "modify_channel"
+	CREATE_MESSAGE = "create_message"
+)
+
 func (sseMsg *SseMessage) Encode() []byte {
 	var msg []byte
 	if sseMsg.event != "" {
