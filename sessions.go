@@ -22,21 +22,19 @@ type Session struct {
 // }
 
 type SessionManager struct {
-	mutex             sync.RWMutex
-	sessions          map[int64]Session
-	sessionsPerUserId map[int64][]int64
-	onlineUsers       map[int64]struct{}
-	rooms             map[int64]map[int64]struct{}
-	idGen             *snowflake.Node
-	db                *sql.DB
+	mutex       sync.RWMutex
+	sessions    map[int64]Session
+	onlineUsers map[int64]struct{}
+	rooms       map[int64]map[int64]struct{}
+	idGen       *snowflake.Node
+	db          *sql.DB
 }
 
 func NewSessionManager(idGen *snowflake.Node, db *sql.DB) *SessionManager {
 	return &SessionManager{
-		sessions:          make(map[int64]Session),
-		sessionsPerUserId: make(map[int64][]int64),
-		onlineUsers:       make(map[int64]struct{}),
-		rooms:             make(map[int64]map[int64]struct{}),
+		sessions:    make(map[int64]Session),
+		onlineUsers: make(map[int64]struct{}),
+		rooms:       make(map[int64]map[int64]struct{}),
 
 		idGen: idGen,
 		db:    db,
@@ -55,8 +53,8 @@ func (sm *SessionManager) NewSession(userId int64) int64 {
 		eventBus: make(chan []byte),
 	}
 
-	// add to sessionsPerUserId
-	sm.sessionsPerUserId[userId] = append(sm.sessionsPerUserId[userId], sessionId)
+	// subscribe for events sent to own user ID
+	sm.enterRoom(sessionId, 0, userId)
 
 	// add to onlineUsers
 	_, exists := sm.onlineUsers[userId]
@@ -100,22 +98,10 @@ func (sm *SessionManager) RemoveSession(sessionId int64) {
 	// remove from sessions
 	delete(sm.sessions, sessionId)
 
-	// remove from sessionsPerUserId
-	sessionsLen := len(sm.sessionsPerUserId[userId])
-	if sessionsLen > 1 {
-		for i := range sessionsLen {
-			if sm.sessionsPerUserId[userId][i] == sessionId {
-				sm.sessionsPerUserId[userId][i] = sm.sessionsPerUserId[userId][sessionsLen-1]
-				sm.sessionsPerUserId[userId] = sm.sessionsPerUserId[userId][:sessionsLen-1]
-				break
-			}
-		}
-	} else {
-		delete(sm.sessionsPerUserId, userId)
-	}
+	// remove session from room assigned to user ID
+	sm.leaveRoom(sessionId, userId)
 
-	// remove from onlineUsers
-	if len(sm.sessionsPerUserId[userId]) < 1 {
+	if len(sm.rooms[userId]) < 1 {
 		delete(sm.onlineUsers, userId)
 		// TODO emit about user going offline
 	}
