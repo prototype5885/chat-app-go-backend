@@ -797,7 +797,7 @@ func (env *Handler) deleteChannel(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) getMembers(w http.ResponseWriter, r *http.Request) {
 	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
 
-	members, err := getMembersFromDatabase(env.db, serverId)
+	members, err := getMembersFromDatabase(env.db, env.sm, serverId)
 	if err != nil {
 		unexpectedErrorResponse(w, err)
 		return

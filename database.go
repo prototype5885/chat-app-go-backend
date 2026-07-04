@@ -286,7 +286,7 @@ func getAttachmentsFromDatabase(db *sql.DB, messageId int64) (attachments []Atta
 	return
 }
 
-func getMembersFromDatabase(db *sql.DB, serverId int64) (users []UserResponse, err error) {
+func getMembersFromDatabase(db *sql.DB, sm *SessionManager, serverId int64) (users []UserResponse, err error) {
 	var rows *sql.Rows
 
 	const q = `
@@ -309,7 +309,7 @@ func getMembersFromDatabase(db *sql.DB, serverId int64) (users []UserResponse, e
 			return
 		}
 
-		u.Online = true // TODO check if online
+		u.Online = sm.isUserOnline(u.Id)
 
 		users = append(users, u)
 
