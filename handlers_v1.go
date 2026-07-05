@@ -891,14 +891,25 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
+	channelIdStr := r.PathValue("channelId")
+	if channelIdStr == "" {
+		http.Error(w, "Missing channel ID parameter", http.StatusBadRequest)
+		return
+	}
+	channelId, err := strconv.ParseInt(channelIdStr, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	messageIdStr := r.PathValue("messageId")
 	if messageIdStr == "" {
-		http.Error(w, "Missing message ID parameter", 400)
+		http.Error(w, "Missing message ID parameter", http.StatusBadRequest)
 		return
 	}
 	messageId, err := strconv.ParseInt(messageIdStr, 10, 64)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -910,7 +921,7 @@ func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 	err = json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
 		slog.Warn(err.Error())
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	p.Message = strings.TrimSpace(p.Message)
@@ -919,13 +930,15 @@ func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 		validator.TextMessageSchema.Validate(p.Message, false),
 	)
 	if len(issues) != 0 {
-		jsonResponseStruct(w, issues, 400)
+		jsonResponseStruct(w, issues, http.StatusBadRequest)
 		return
 	}
 
-	const q = "UPDATE messages SET message = ?, edited = ? WHERE id = ? AND sender_id = ?"
+	editedTimestamp := time.Now().Unix()
 
-	result, err := env.db.Exec(q, p.Message, time.Now().Unix(), messageId, userId)
+	const q = "UPDATE messages SET message = ?, edited = ? WHERE id = ? AND sender_id = ? AND channel_id = ?"
+
+	result, err := env.db.Exec(q, p.Message, editedTimestamp, messageId, userId, channelId)
 	if err != nil {
 		unexpectedErrorResponse(w, err)
 		return
@@ -942,13 +955,20 @@ func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	row := env.db.QueryRow("SELECT id, sender_id, channel_id, message, edited FROM messages WHERE id = ?", messageId)
+	type MessageEditResponse struct {
+		Id        int64  `json:"id"`
+		SenderId  int64  `json:"sender_id"`
+		ChannelId int64  `json:"channel_id"`
+		Message   string `json:"message"`
+		Edited    string `json:"edited"`
+	}
 
-	var editedMsg MessageEditResponse
-	err = row.Scan(&editedMsg.Id, &editedMsg.SenderId, &editedMsg.ChannelId, &editedMsg.Message, &editedMsg.Edited)
-	if err != nil {
-		unexpectedErrorResponse(w, err)
-		return
+	var editedMsg = MessageEditResponse{
+		Id:        messageId,
+		SenderId:  userId,
+		ChannelId: channelId,
+		Message:   p.Message,
+		Edited:    fmt.Sprint(editedTimestamp),
 	}
 
 	editedMsgJson, err := json.Marshal(editedMsg)
