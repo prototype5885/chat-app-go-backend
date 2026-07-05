@@ -1103,37 +1103,44 @@ func (env *Handler) typing(w http.ResponseWriter, r *http.Request) {
 	channelId := env.mustGetIdFromServerContext(r, ChannelIdKeyType{})
 	action := r.PathValue("action")
 
-	type ResponsePayload struct {
-		Action      string  `json:"action"`
-		Id          int64   `json:"id"`
-		DisplayName *string `json:"display_name,omitempty"`
-	}
-
-	data := ResponsePayload{Id: userId}
+	var buf []byte
+	const bufLengthBase = 1 + 1 + 19 // action byte + space + maximum possible snowflake ID digits (ranges from 17 to 19)
+	var bufLength = bufLengthBase
 
 	switch action {
 	case "start":
+		var displayName string
 		row := env.db.QueryRow("SELECT display_name FROM users WHERE id = ?", userId)
-		err := row.Scan(&data.DisplayName)
+		err := row.Scan(&displayName)
 		if err != nil {
 			unexpectedErrorResponse(w, err)
 			return
 		}
-		data.Action = "start"
+
+		// "1 987654321 displayname"
+		bufLength = bufLengthBase + 1 + len(displayName) // that 1 is space between id and display name
+		buf = make([]byte, 0, bufLength)
+		buf = append(buf, "1"...) // 1 in beginning means start
+		buf = append(buf, ' ')
+		buf = strconv.AppendInt(buf, userId, 10)
+		buf = append(buf, ' ')
+		buf = append(buf, displayName...)
 	case "stop":
-		data.Action = "stop"
+		// "1 987654321"
+		buf = make([]byte, 0, bufLength)
+		buf = append(buf, "0"...) // 0 in beginning means stop
+		buf = append(buf, ' ')
+		buf = strconv.AppendInt(buf, userId, 10)
 	default:
 		http.Error(w, "unsupported action parameter", http.StatusBadRequest)
 		return
 	}
 
-	dataJson, err := json.Marshal(data)
-	if err != nil {
-		unexpectedErrorResponse(w, err)
-		return
+	if len(buf) > bufLength {
+		slog.Warn(fmt.Sprintf("Length of buf is supposed to less or equal than %d, but was %d instead", bufLength, len(buf)))
 	}
 
-	env.sm.EmitToRoom(TYPING, dataJson, channelId)
+	env.sm.EmitToRoom(TYPING, buf, channelId)
 
 	w.WriteHeader(http.StatusAccepted)
 }
