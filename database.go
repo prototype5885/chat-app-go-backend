@@ -20,6 +20,7 @@ const driverMysql = 1
 func initDatabase() (db *sql.DB, err error) {
 	// if empty then sqlite will be used instead
 	mysqlConnString := os.Getenv("MYSQL_CONN_STRING")
+	var version string = "unknown version"
 
 	if mysqlConnString == "" { // sqlite
 		dbPath := filepath.Join("database", "database.db")
@@ -33,6 +34,12 @@ func initDatabase() (db *sql.DB, err error) {
 		}
 
 		db.SetMaxOpenConns(1)
+
+		row := db.QueryRow("SELECT sqlite_version()")
+		err = row.Scan(&version)
+		if err != nil {
+			return
+		}
 
 		_, err = db.Exec(`
 			PRAGMA journal_mode = WAL;
@@ -50,13 +57,19 @@ func initDatabase() (db *sql.DB, err error) {
 
 		db.SetMaxOpenConns(10)
 
+		row := db.QueryRow("SELECT VERSION()")
+		err = row.Scan(&version)
+		if err != nil {
+			return
+		}
+
 		err = db.Ping()
 		if err != nil {
 			return
 		}
 	}
 
-	slog.Info(fmt.Sprintf("Database driver used: %s", reflect.TypeOf(db.Driver()).String()))
+	slog.Info(fmt.Sprintf("Database driver used: %s, version: %s", reflect.TypeOf(db.Driver()).String(), version))
 	_ = getDatabaseDriver(db) // quick overkill check to see if database is really valid
 
 	_, err = db.Exec(fmt.Sprintf(`
