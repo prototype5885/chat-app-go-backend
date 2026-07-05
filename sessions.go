@@ -61,9 +61,14 @@ func (sm *SessionManager) NewSession(userId int64) (Session, int64) {
 	_, exists := sm.onlineUsers[userId]
 	if !exists {
 		sm.onlineUsers[userId] = struct{}{}
-		go sm.EmitUserOlineChange(userId, true)
 	}
+
 	sm.mutex.Unlock()
+
+	// run this specially after mutex is unlocked
+	if !exists {
+		sm.EmitUserOlineChange(userId, true)
+	}
 
 	slog.Debug(fmt.Sprintf("New session %d for user ID %d", sessionId, userId))
 	return session, sessionId
@@ -71,10 +76,10 @@ func (sm *SessionManager) NewSession(userId int64) (Session, int64) {
 
 func (sm *SessionManager) RemoveSession(sessionId int64) {
 	sm.mutex.Lock()
-	defer sm.mutex.Unlock()
 
 	session, exists := sm.sessions[sessionId]
 	if !exists {
+		sm.mutex.Unlock()
 		slog.Error(fmt.Sprintf("Session ID %d is supposed to be in sessions, but wasn't", sessionId))
 		return
 	}
@@ -92,6 +97,7 @@ func (sm *SessionManager) RemoveSession(sessionId int64) {
 
 	userId := session.userId
 	if userId == 0 {
+		sm.mutex.Unlock()
 		// this isn't supposed to happen as user ID is set in AddSession
 		panic(fmt.Sprintf("Session ID %d is supposed to have an user ID assigned, but there wasn't", sessionId))
 	}
@@ -102,9 +108,16 @@ func (sm *SessionManager) RemoveSession(sessionId int64) {
 	// remove session from room assigned to user ID
 	sm.leaveRoom(sessionId, userId)
 
-	if len(sm.rooms[userId]) < 1 {
+	sessionCount := len(sm.rooms[userId])
+	if sessionCount < 1 {
 		delete(sm.onlineUsers, userId)
-		go sm.EmitUserOlineChange(userId, false)
+	}
+
+	sm.mutex.Unlock()
+
+	// run this specially after mutex is unlocked
+	if sessionCount < 1 {
+		sm.EmitUserOlineChange(userId, false)
 	}
 
 	slog.Debug(fmt.Sprintf("Removed session %d of user ID %d", sessionId, userId))
