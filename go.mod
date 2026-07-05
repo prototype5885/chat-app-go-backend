@@ -7,6 +7,7 @@ require (
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/go-chi/chi/v5 v5.3.0
 	github.com/go-sql-driver/mysql v1.10.0
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-sqlite3 v1.14.47
 	golang.org/x/image v0.43.0

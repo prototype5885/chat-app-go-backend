@@ -281,6 +281,12 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = UserCacheRefresh(env.db, userId)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
 	type ResponseData struct {
 		Id          int64  `json:"id"`
 		DisplayName string `json:"display_name,omitempty"`
@@ -338,6 +344,12 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = env.db.Exec("UPDATE users SET picture = ? WHERE id = ?", fileName, userId)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	err = UserCacheRefresh(env.db, userId)
 	if err != nil {
 		unexpectedErrorResponse(w, err)
 		return
@@ -856,15 +868,10 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var displayName string
-	var picture *string
-	{
-		row := env.db.QueryRow("SELECT display_name, picture FROM users WHERE id = ?", userId)
-		err := row.Scan(&displayName, &picture)
-		if err != nil {
-			unexpectedErrorResponse(w, err)
-			return
-		}
+	userCache, err := UserCacheGetSet(env.db, userId)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
 	}
 
 	messageResponse := MessageResponse{
@@ -872,8 +879,8 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		SenderId:    userId,
 		ChannelId:   channelId,
 		Message:     message,
-		DisplayName: displayName,
-		Picture:     picture,
+		DisplayName: userCache.displayName,
+		Picture:     &userCache.picture,
 		Attachments: []Attachment{},
 	}
 
@@ -1109,13 +1116,12 @@ func (env *Handler) typing(w http.ResponseWriter, r *http.Request) {
 
 	switch action {
 	case "start":
-		var displayName string
-		row := env.db.QueryRow("SELECT display_name FROM users WHERE id = ?", userId)
-		err := row.Scan(&displayName)
+		userCache, err := UserCacheGetSet(env.db, userId)
 		if err != nil {
 			unexpectedErrorResponse(w, err)
 			return
 		}
+		displayName := userCache.displayName
 
 		// "1 987654321 displayname"
 		bufLength = bufLengthBase + 1 + len(displayName) // that 1 is space between id and display name
