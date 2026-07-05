@@ -301,12 +301,12 @@ func getMembersFromDatabase(db *sql.DB, sm *SessionManager, serverId int64) (use
 
 	const q = `
 		SELECT u.id, u.username, u.display_name, u.picture, u.custom_status
-		FROM users u JOIN servers s ON s.owner_id = u.id WHERE s.id = :s_id
+		FROM users u JOIN servers s ON s.owner_id = u.id WHERE s.id = ?
 		UNION
 		SELECT u.id, u.username, u.display_name, u.picture, u.custom_status
-		FROM users u JOIN server_members sm ON sm.member_id = u.id WHERE sm.server_id = :s_id
+		FROM users u JOIN server_members sm ON sm.member_id = u.id WHERE sm.server_id = ?
     `
-	rows, err = db.Query(q, serverId)
+	rows, err = db.Query(q, serverId, serverId)
 	if err != nil {
 		return
 	}
