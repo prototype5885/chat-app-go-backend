@@ -49,12 +49,12 @@ type ChannelDatabase struct {
 }
 
 type MessageDatabase struct {
-	Id              int64   `json:"id"`
-	SenderId        int64   `json:"sender_id"`
-	ChannelId       int64   `json:"channel_id"`
-	Message         string  `json:"message"`
-	AttachmentCount *int    `json:"attachment_count,omitempty"`
-	Edited          *string `json:"edited,omitempty"`
+	Id              int64  `json:"id"`
+	SenderId        int64  `json:"sender_id"`
+	ChannelId       int64  `json:"channel_id"`
+	Message         string `json:"message"`
+	AttachmentCount *int   `json:"attachment_count,omitempty"`
+	Edited          *int64 `json:"edited,omitempty"`
 }
 
 type CreateServerReq struct {
@@ -82,7 +82,7 @@ type MessageResponse struct {
 	ChannelId       int64        `json:"channel_id"`
 	Message         string       `json:"message"`
 	AttachmentCount *int         `json:"-"`
-	Edited          *string      `json:"edited,omitempty"`
+	Edited          *int64       `json:"edited,omitempty"`
 	DisplayName     string       `json:"display_name"`
 	Picture         *string      `json:"picture,omitempty"`
 	Attachments     []Attachment `json:"attachments"`

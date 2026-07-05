@@ -108,7 +108,7 @@ func initDatabase() (db *sql.DB, err error) {
 			channel_id BIGINT NOT NULL,
 			message VARCHAR(%d) NOT NULL,
 			attachment_count SMALLINT,
-			edited TEXT,
+			edited BIGINT,
 			FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE,
 			FOREIGN KEY (channel_id) REFERENCES channels (id) ON DELETE CASCADE
 		);

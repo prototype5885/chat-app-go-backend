@@ -960,7 +960,7 @@ func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 		SenderId  int64  `json:"sender_id"`
 		ChannelId int64  `json:"channel_id"`
 		Message   string `json:"message"`
-		Edited    string `json:"edited"`
+		Edited    int64  `json:"edited"`
 	}
 
 	var editedMsg = MessageEditResponse{
@@ -968,7 +968,7 @@ func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 		SenderId:  userId,
 		ChannelId: channelId,
 		Message:   p.Message,
-		Edited:    fmt.Sprint(editedTimestamp),
+		Edited:    editedTimestamp,
 	}
 
 	editedMsgJson, err := json.Marshal(editedMsg)
