@@ -577,25 +577,28 @@ func (env *Handler) uploadServerAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// const q2 = `
-	// 	SELECT
-	// 	id, owner_id, name, picture, banner, roles
-	//  	FROM servers WHERE id = ? AND owner_id = ?`
-	// row := env.db.QueryRow(q2, serverId, userId)
+	const q2 = `
+		SELECT
+		id, owner_id, name, picture, banner, roles
+	 	FROM servers WHERE id = ? AND owner_id = ?
+	`
+	row := env.db.QueryRow(q2, serverId, userId)
 
-	// var s ServerDatabase
-	// err = row.Scan(&s.Id, &s.OwnerID, &s.Name, &s.Picture, &s.Banner, &s.Roles)
-	// if err != nil {
-	// 	unexpectedErrorResponse(w, err)
-	// 	return
-	// }
+	var s ServerDatabase
+	err = row.Scan(&s.Id, &s.OwnerID, &s.Name, &s.Picture, &s.Banner, &s.Roles)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
 
-	// sessions.emitToServerList(serverID, {
-	//   event: SERVER_INFO,
-	//   data: s,
-	// });
+	serverJson, err := json.Marshal(s)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
 
-	// TODO emit change
+	sseMsg := SseMessage{event: SERVER_INFO, data: string(serverJson)}
+	env.sm.EmitToServerMembers(sseMsg.Encode(), serverId)
 
 	textResponse(w, fileName, 200)
 }
