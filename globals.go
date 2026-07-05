@@ -24,6 +24,7 @@ const (
 	CREATE_MESSAGE = "create_message"
 	EDIT_MESSAGE   = "edit_message"
 	DELETE_MESSAGE = "delete_message"
+	TYPING         = "typing"
 )
 
 func (sseMsg *SseMessage) Encode() []byte {

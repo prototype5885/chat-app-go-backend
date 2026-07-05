@@ -1103,7 +1103,7 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 
 func (env *Handler) typing(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
-	// channelId := env.mustGetIdFromServerContext(r, ChannelIdKeyType{})
+	channelId := env.mustGetIdFromServerContext(r, ChannelIdKeyType{})
 	action := r.PathValue("action")
 
 	type ResponsePayload struct {
@@ -1130,7 +1130,14 @@ func (env *Handler) typing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO emit to channel
+	dataJson, err := json.Marshal(data)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	sseMsg := SseMessage{event: TYPING, data: string(dataJson)}
+	env.sm.EmitToRoom(sseMsg.Encode(), channelId)
 
 	w.WriteHeader(http.StatusAccepted)
 }
