@@ -2,6 +2,7 @@ package cache
 
 import (
 	"database/sql"
+	"errors"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 )
@@ -24,7 +25,11 @@ func TokenGetSet(db *sql.DB, token string) (*TokenCache, error) {
 		return nil, err
 	}
 
-	return TokenGetSet(db, token)
+	data, exists = tokenCache.Get(token)
+	if !exists {
+		return nil, errors.New("token cache missing after refresh")
+	}
+	return data, nil
 }
 
 func TokenRefresh(db *sql.DB, token string) error {

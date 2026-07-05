@@ -2,6 +2,7 @@ package cache
 
 import (
 	"database/sql"
+	"errors"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 )
@@ -24,7 +25,11 @@ func UserGetSet(db *sql.DB, userId int64) (*UserCache, error) {
 		return nil, err
 	}
 
-	return UserGetSet(db, userId)
+	data, exists = userCache.Get(userId)
+	if !exists {
+		return nil, errors.New("user cache missing after refresh")
+	}
+	return data, nil
 }
 
 func UserRefresh(db *sql.DB, userId int64) error {
