@@ -787,11 +787,10 @@ func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {
 }
 
 func (env *Handler) deleteChannel(w http.ResponseWriter, r *http.Request) {
-	// userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
-	// serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
+	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
 	channelId := env.mustGetIdFromServerContext(r, ChannelIdKeyType{})
 
-	result, err := env.db.Exec("DELETE FROM channels WHERE id = ?", channelId)
+	result, err := env.db.Exec("DELETE FROM channels WHERE id = ? AND server_id = ?", channelId, serverId)
 	if err != nil {
 		unexpectedErrorResponse(w, err)
 		return
@@ -808,7 +807,9 @@ func (env *Handler) deleteChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO emit to server id
+	data := fmt.Sprintf(`{"id":%d}`, channelId)
+	sseMsg := SseMessage{event: DELETE_CHANNEL, data: data}
+	env.sm.EmitToRoom(sseMsg.Encode(), serverId)
 
 	w.WriteHeader(http.StatusAccepted)
 }
