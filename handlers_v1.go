@@ -713,7 +713,7 @@ func (env *Handler) updateChannelInfo(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		slog.Warn(err.Error())
-		http.Error(w, "Invalid form", 400)
+		http.Error(w, "Invalid form", http.StatusBadRequest)
 		return
 	}
 
@@ -723,7 +723,7 @@ func (env *Handler) updateChannelInfo(w http.ResponseWriter, r *http.Request) {
 		validator.ChannelNameSchema.Validate(channelName, true),
 	)
 	if len(issues) != 0 {
-		jsonResponseStruct(w, issues, 400)
+		jsonResponseStruct(w, issues, http.StatusBadRequest)
 		return
 	}
 
@@ -752,19 +752,23 @@ func (env *Handler) updateChannelInfo(w http.ResponseWriter, r *http.Request) {
 	const q = "SELECT id, server_id, name FROM channels WHERE id = ?"
 	row := env.db.QueryRow(q, channelId)
 
-	var c ChannelDatabase
-	err = row.Scan(&c.Id, &c.ServerId, &c.Name)
+	var channel ChannelDatabase
+	err = row.Scan(&channel.Id, &channel.ServerId, &channel.Name)
 	if err != nil {
 		unexpectedErrorResponse(w, err)
 		return
 	}
 
-	// sessions.emit(userID, {
-	//   event: MODIFY_CHANNEL,
-	//   data: c,
-	// });
+	channelJson, err := json.Marshal(channel)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
 
-	jsonResponseStruct(w, c, 200)
+	sseMsg := SseMessage{event: MODIFY_CHANNEL, data: string(channelJson)}
+	env.sm.EmitToRoom(sseMsg.Encode(), channel.ServerId)
+
+	jsonResponseStruct(w, channel, 200)
 }
 
 func (env *Handler) getChannels(w http.ResponseWriter, r *http.Request) {

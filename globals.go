@@ -21,7 +21,7 @@ const (
 	SERVER_INFO    = "server_info"
 	DELETE_SERVER  = "delete_server"
 	CREATE_CHANNEL = "create_channel"
-	// MODIFY_CHANNEL = "modify_channel"
+	MODIFY_CHANNEL = "modify_channel"
 	// DELETE_CHANNEL = "delete_channel"
 	CREATE_MESSAGE = "create_message"
 	EDIT_MESSAGE   = "edit_message"
