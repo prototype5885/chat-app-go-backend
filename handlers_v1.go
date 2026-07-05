@@ -966,19 +966,30 @@ func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 func (env *Handler) deleteMessage(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
+	channelIdStr := r.PathValue("channelId")
+	if channelIdStr == "" {
+		http.Error(w, "Missing channel ID parameter", http.StatusBadRequest)
+		return
+	}
+	channelId, err := strconv.ParseInt(channelIdStr, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	messageIdStr := r.PathValue("messageId")
 	if messageIdStr == "" {
-		http.Error(w, "Missing message ID parameter", 400)
+		http.Error(w, "Missing message ID parameter", http.StatusBadRequest)
 		return
 	}
 	messageId, err := strconv.ParseInt(messageIdStr, 10, 64)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	const q = "DELETE FROM messages WHERE id = ? AND sender_id = ?"
-	result, err := env.db.Exec(q, messageId, userId)
+	const q = "DELETE FROM messages WHERE id = ? AND sender_id = ? AND channel_id = ?"
+	result, err := env.db.Exec(q, messageId, userId, channelId)
 	if err != nil {
 		unexpectedErrorResponse(w, err)
 		return
@@ -995,7 +1006,9 @@ func (env *Handler) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO broadcast about delete
+	data := fmt.Sprintf(`{"id":%d}`, messageId)
+	sseMsg := SseMessage{event: DELETE_MESSAGE, data: data}
+	env.sm.EmitToRoom(sseMsg.Encode(), channelId)
 
 	w.WriteHeader(http.StatusAccepted)
 }
