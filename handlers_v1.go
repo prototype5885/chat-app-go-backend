@@ -648,7 +648,7 @@ func (env *Handler) createChannel(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
 		slog.Warn(err.Error())
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	p.Name = strings.TrimSpace(p.Name)
@@ -657,7 +657,7 @@ func (env *Handler) createChannel(w http.ResponseWriter, r *http.Request) {
 		validator.ChannelNameSchema.Validate(p.Name, false),
 	)
 	if len(issues) != 0 {
-		jsonResponseStruct(w, issues, 400)
+		jsonResponseStruct(w, issues, http.StatusBadRequest)
 		return
 	}
 
@@ -670,7 +670,20 @@ func (env *Handler) createChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO emit about channel creation
+	channel := ChannelDatabase{
+		Id:       channelId,
+		ServerId: serverId,
+		Name:     p.Name,
+	}
+
+	channelJson, err := json.Marshal(channel)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	sseMsg := SseMessage{event: CREATE_CHANNEL, data: string(channelJson)}
+	env.sm.EmitToRoom(sseMsg.Encode(), serverId)
 
 	w.WriteHeader(http.StatusAccepted)
 }
