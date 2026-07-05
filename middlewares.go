@@ -87,7 +87,7 @@ func (env *Handler) AuthSessionIdMw(next http.Handler) http.Handler {
 
 		sessionId, err := strconv.ParseInt(sessionIdStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -111,12 +111,12 @@ func (env *Handler) IsServerOwnerMw(next http.Handler) http.Handler {
 
 		serverIdStr := r.PathValue("serverId")
 		if serverIdStr == "" {
-			http.Error(w, "Missing server ID parameter", 400)
+			http.Error(w, "Missing server ID parameter", http.StatusBadRequest)
 			return
 		}
 		serverId, err := strconv.ParseInt(serverIdStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -150,12 +150,12 @@ func (env *Handler) HasServerAccessMw(next http.Handler) http.Handler {
 
 		serverIdStr := r.PathValue("serverId")
 		if serverIdStr == "" {
-			http.Error(w, "Missing server ID parameter", 400)
+			http.Error(w, "Missing server ID parameter", http.StatusBadRequest)
 			return
 		}
 		serverId, err := strconv.ParseInt(serverIdStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -195,12 +195,12 @@ func (env *Handler) IsChannelOwnerMw(next http.Handler) http.Handler {
 
 		channelIdStr := r.PathValue("channelId")
 		if channelIdStr == "" {
-			http.Error(w, "Missing channel ID parameter", 400)
+			http.Error(w, "Missing channel ID parameter", http.StatusBadRequest)
 			return
 		}
 		channelId, err := strconv.ParseInt(channelIdStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -239,12 +239,12 @@ func (env *Handler) HasChannelAccessMw(next http.Handler) http.Handler {
 
 		channelIdStr := r.PathValue("channelId")
 		if channelIdStr == "" {
-			http.Error(w, "Missing channel ID parameter", 400)
+			http.Error(w, "Missing channel ID parameter", http.StatusBadRequest)
 			return
 		}
 		channelId, err := strconv.ParseInt(channelIdStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
