@@ -9,11 +9,6 @@ type SessionIdKeyType struct{}
 type ServerIdKeyType struct{}
 type ChannelIdKeyType struct{}
 
-type SseMessage struct {
-	event string
-	data  string
-}
-
 const (
 	SESSION_ID     = "session_id"
 	SELF_USER_INFO = "self_user_info"
@@ -28,26 +23,6 @@ const (
 	DELETE_MESSAGE = "delete_message"
 	TYPING         = "typing"
 )
-
-func (sseMsg *SseMessage) Encode() []byte {
-	size := len("data: \n\n") + len(sseMsg.data)
-	if sseMsg.event != "" {
-		size += len("event: \n") + len(sseMsg.event)
-	}
-
-	buf := make([]byte, 0, size)
-
-	if sseMsg.event != "" {
-		buf = append(buf, "event: "...)
-		buf = append(buf, sseMsg.event...)
-		buf = append(buf, '\n')
-	}
-	buf = append(buf, "data: "...)
-	buf = append(buf, sseMsg.data...)
-	buf = append(buf, '\n', '\n')
-
-	return buf
-}
 
 var (
 	avatarFilesMutex        sync.Mutex

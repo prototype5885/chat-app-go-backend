@@ -173,11 +173,13 @@ func (sm *SessionManager) enterRoom(sessionId int64, prevRoomId int64, newRoomId
 }
 
 // only to be called from a function with mutex
-func (sm *SessionManager) emit(msg []byte, roomId int64) {
+func (sm *SessionManager) emit(event string, data []byte, roomId int64) {
 	listeners, exists := sm.rooms[roomId]
 	if !exists {
 		return
 	}
+
+	msg := encodeServerSentEvent(event, data)
 
 	for sessionId := range listeners {
 		select {
@@ -188,13 +190,13 @@ func (sm *SessionManager) emit(msg []byte, roomId int64) {
 	}
 }
 
-func (sm *SessionManager) EmitToRoom(msg []byte, roomId int64) {
+func (sm *SessionManager) EmitToRoom(event string, data []byte, roomId int64) {
 	sm.mutex.RLock()
-	sm.emit(msg, roomId)
+	sm.emit(event, data, roomId)
 	sm.mutex.RUnlock()
 }
 
-func (sm *SessionManager) EmitToServersUserIsIn(msg []byte, userId int64) {
+func (sm *SessionManager) EmitToServersUserIsIn(event string, data []byte, userId int64) {
 	serverIds, err := getServersIdsFromDatabase(sm.db, userId)
 	if err != nil {
 		slog.Error(err.Error())
@@ -202,12 +204,12 @@ func (sm *SessionManager) EmitToServersUserIsIn(msg []byte, userId int64) {
 
 	sm.mutex.RLock()
 	for i := range serverIds {
-		sm.emit(msg, serverIds[i])
+		sm.emit(event, data, serverIds[i])
 	}
 	sm.mutex.RUnlock()
 }
 
-func (sm *SessionManager) EmitToServerMembers(msg []byte, serverId int64) {
+func (sm *SessionManager) EmitToServerMembers(event string, data []byte, serverId int64) {
 	userIds, err := getMemberIdsFromDatabase(sm.db, sm, serverId)
 	if err != nil {
 		slog.Error(err.Error())
@@ -215,7 +217,7 @@ func (sm *SessionManager) EmitToServerMembers(msg []byte, serverId int64) {
 
 	sm.mutex.RLock()
 	for i := range userIds {
-		sm.emit(msg, userIds[i])
+		sm.emit(event, data, userIds[i])
 	}
 	sm.mutex.RUnlock()
 }

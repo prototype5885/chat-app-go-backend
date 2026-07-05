@@ -48,8 +48,8 @@ func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 
 	// send initial session id
-	msg := SseMessage{event: SESSION_ID, data: fmt.Sprint(sessionId)}
-	_, err := w.Write(msg.Encode())
+	msg := encodeServerSentEvent(SESSION_ID, []byte(strconv.FormatInt(sessionId, 10)))
+	_, err := w.Write(msg)
 	if err != nil {
 		slog.Warn(err.Error())
 		return
@@ -297,14 +297,8 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	{
-		sseMsg := SseMessage{event: SELF_USER_INFO, data: string(responseJson)}
-		env.sm.EmitToRoom(sseMsg.Encode(), userId)
-	}
-	{
-		sseMsg := SseMessage{event: USER_INFO, data: string(responseJson)}
-		env.sm.EmitToServersUserIsIn(sseMsg.Encode(), userId)
-	}
+	env.sm.EmitToRoom(SELF_USER_INFO, responseJson, userId)
+	env.sm.EmitToServersUserIsIn(USER_INFO, responseJson, userId)
 
 	jsonResponse(w, responseJson, http.StatusOK)
 }
@@ -362,14 +356,8 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	{
-		sseMsg := SseMessage{event: SELF_USER_INFO, data: string(avatarResponseJson)}
-		env.sm.EmitToRoom(sseMsg.Encode(), userId)
-	}
-	{
-		sseMsg := SseMessage{event: USER_INFO, data: string(avatarResponseJson)}
-		env.sm.EmitToServersUserIsIn(sseMsg.Encode(), userId)
-	}
+	env.sm.EmitToRoom(SELF_USER_INFO, avatarResponseJson, userId)
+	env.sm.EmitToServersUserIsIn(USER_INFO, avatarResponseJson, userId)
 
 	textResponse(w, fileName, 200)
 }
@@ -529,8 +517,7 @@ func (env *Handler) updateServerInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sseMsg := SseMessage{event: SERVER_INFO, data: string(serverJson)}
-	env.sm.EmitToServerMembers(sseMsg.Encode(), serverId)
+	env.sm.EmitToServerMembers(SERVER_INFO, serverJson, serverId)
 
 	jsonResponse(w, serverJson, 200)
 }
@@ -597,8 +584,7 @@ func (env *Handler) uploadServerAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sseMsg := SseMessage{event: SERVER_INFO, data: string(serverJson)}
-	env.sm.EmitToServerMembers(sseMsg.Encode(), serverId)
+	env.sm.EmitToServerMembers(SERVER_INFO, serverJson, serverId)
 
 	textResponse(w, fileName, 200)
 }
@@ -619,9 +605,8 @@ func (env *Handler) deleteServer(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
 
-	data := fmt.Sprintf(`{"id":%d}`, serverId)
-	sseMsg := SseMessage{event: DELETE_SERVER, data: data}
-	env.sm.EmitToServerMembers(sseMsg.Encode(), serverId)
+	data := fmt.Appendf(nil, `{"id":%d}`, serverId)
+	env.sm.EmitToServerMembers(DELETE_SERVER, data, serverId)
 
 	result, err := env.db.Exec("DELETE FROM servers WHERE id = ? AND owner_id = ?", serverId, userId)
 	if err != nil {
@@ -685,8 +670,7 @@ func (env *Handler) createChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sseMsg := SseMessage{event: CREATE_CHANNEL, data: string(channelJson)}
-	env.sm.EmitToRoom(sseMsg.Encode(), serverId)
+	env.sm.EmitToRoom(CREATE_CHANNEL, channelJson, serverId)
 
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -768,8 +752,7 @@ func (env *Handler) updateChannelInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sseMsg := SseMessage{event: MODIFY_CHANNEL, data: string(channelJson)}
-	env.sm.EmitToRoom(sseMsg.Encode(), channel.ServerId)
+	env.sm.EmitToRoom(MODIFY_CHANNEL, channelJson, channel.ServerId)
 
 	jsonResponseStruct(w, channel, 200)
 }
@@ -810,9 +793,8 @@ func (env *Handler) deleteChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := fmt.Sprintf(`{"id":%d}`, channelId)
-	sseMsg := SseMessage{event: DELETE_CHANNEL, data: data}
-	env.sm.EmitToRoom(sseMsg.Encode(), serverId)
+	data := fmt.Appendf(nil, `{"id":%d}`, channelId)
+	env.sm.EmitToRoom(DELETE_CHANNEL, data, serverId)
 
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -903,8 +885,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sseMsg := SseMessage{event: CREATE_MESSAGE, data: string(messageResponseJson)}
-	env.sm.EmitToRoom(sseMsg.Encode(), channelId)
+	env.sm.EmitToRoom(CREATE_MESSAGE, messageResponseJson, channelId)
 
 	w.WriteHeader(202)
 }
@@ -998,8 +979,7 @@ func (env *Handler) editMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sseMsg := SseMessage{event: EDIT_MESSAGE, data: string(editedMsgJson)}
-	env.sm.EmitToRoom(sseMsg.Encode(), editedMsg.ChannelId)
+	env.sm.EmitToRoom(EDIT_MESSAGE, editedMsgJson, editedMsg.ChannelId)
 
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -1047,9 +1027,8 @@ func (env *Handler) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := fmt.Sprintf(`{"id":%d}`, messageId)
-	sseMsg := SseMessage{event: DELETE_MESSAGE, data: data}
-	env.sm.EmitToRoom(sseMsg.Encode(), channelId)
+	data := fmt.Appendf(nil, `{"id":%d}`, messageId)
+	env.sm.EmitToRoom(DELETE_MESSAGE, data, channelId)
 
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -1157,8 +1136,7 @@ func (env *Handler) typing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sseMsg := SseMessage{event: TYPING, data: string(dataJson)}
-	env.sm.EmitToRoom(sseMsg.Encode(), channelId)
+	env.sm.EmitToRoom(TYPING, dataJson, channelId)
 
 	w.WriteHeader(http.StatusAccepted)
 }

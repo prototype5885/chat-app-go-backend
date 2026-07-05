@@ -88,3 +88,23 @@ func rollbackTx(tx *sql.Tx) {
 		slog.Error(err.Error())
 	}
 }
+
+func encodeServerSentEvent(event string, data []byte) []byte {
+	size := len("data: \n\n") + len(data)
+	if event != "" {
+		size += len("event: \n") + len(event)
+	}
+
+	buf := make([]byte, 0, size)
+
+	if event != "" {
+		buf = append(buf, "event: "...)
+		buf = append(buf, event...)
+		buf = append(buf, '\n')
+	}
+	buf = append(buf, "data: "...)
+	buf = append(buf, data...)
+	buf = append(buf, '\n', '\n')
+
+	return buf
+}
