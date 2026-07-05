@@ -605,8 +605,7 @@ func (env *Handler) deleteServer(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 	serverId := env.mustGetIdFromServerContext(r, ServerIdKeyType{})
 
-	data := fmt.Appendf(nil, `{"id":%d}`, serverId)
-	env.sm.EmitToServerMembers(DELETE_SERVER, data, serverId)
+	env.sm.EmitToServerMembers(DELETE_SERVER, []byte(strconv.FormatInt(serverId, 10)), serverId)
 
 	result, err := env.db.Exec("DELETE FROM servers WHERE id = ? AND owner_id = ?", serverId, userId)
 	if err != nil {
@@ -793,8 +792,7 @@ func (env *Handler) deleteChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := fmt.Appendf(nil, `{"id":%d}`, channelId)
-	env.sm.EmitToRoom(DELETE_CHANNEL, data, serverId)
+	env.sm.EmitToRoom(DELETE_CHANNEL, []byte(strconv.FormatInt(channelId, 10)), serverId)
 
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -1027,8 +1025,7 @@ func (env *Handler) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := fmt.Appendf(nil, `{"id":%d}`, messageId)
-	env.sm.EmitToRoom(DELETE_MESSAGE, data, channelId)
+	env.sm.EmitToRoom(DELETE_MESSAGE, []byte(strconv.FormatInt(messageId, 10)), channelId)
 
 	w.WriteHeader(http.StatusAccepted)
 }
