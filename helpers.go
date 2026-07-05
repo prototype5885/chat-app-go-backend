@@ -72,6 +72,10 @@ func (env *Handler) mustGetIdFromServerContext(r *http.Request, keyType any) int
 		name := reflect.TypeOf(keyType).Name()
 		panic(fmt.Sprintf("Failed getting %s from r.Context()", name))
 	}
+	if id == 0 {
+		name := reflect.TypeOf(keyType).Name()
+		panic(fmt.Sprintf("%s from r.Context() has value 0", name))
+	}
 	return id
 }
 

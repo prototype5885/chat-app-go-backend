@@ -213,6 +213,7 @@ func (sm *SessionManager) EmitToServersUserIsIn(event string, data []byte, userI
 	serverIds, err := getServersIdsFromDatabase(sm.db, userId)
 	if err != nil {
 		slog.Error(err.Error())
+		return
 	}
 
 	sm.mutex.RLock()
@@ -226,6 +227,7 @@ func (sm *SessionManager) EmitToServerMembers(event string, data []byte, serverI
 	userIds, err := getMemberIdsFromDatabase(sm.db, sm, serverId)
 	if err != nil {
 		slog.Error(err.Error())
+		return
 	}
 
 	sm.mutex.RLock()
