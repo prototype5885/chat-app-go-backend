@@ -11,7 +11,7 @@ type UserCache struct {
 	Picture     string
 }
 
-var userCache, _ = lru.New[int64, *UserCache](4096 * 4)
+var userCache, _ = lru.New[int64, *UserCache](defaultCacheSize)
 
 func UserGetSet(db *sql.DB, userId int64) (*UserCache, error) {
 	data, exists := userCache.Get(userId)
