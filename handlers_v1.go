@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chatapp/internal/cache"
 	"chatapp/modules/validator"
 	"database/sql"
 	"encoding/base64"
@@ -281,7 +282,7 @@ func (env *Handler) updateUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = UserCacheRefresh(env.db, userId)
+	err = cache.UserRefresh(env.db, userId)
 	if err != nil {
 		unexpectedErrorResponse(w, err)
 		return
@@ -349,7 +350,7 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = UserCacheRefresh(env.db, userId)
+	err = cache.UserRefresh(env.db, userId)
 	if err != nil {
 		unexpectedErrorResponse(w, err)
 		return
@@ -868,7 +869,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userCache, err := UserCacheGetSet(env.db, userId)
+	userCache, err := cache.UserGetSet(env.db, userId)
 	if err != nil {
 		unexpectedErrorResponse(w, err)
 		return
@@ -879,8 +880,8 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		SenderId:    userId,
 		ChannelId:   channelId,
 		Message:     message,
-		DisplayName: userCache.displayName,
-		Picture:     &userCache.picture,
+		DisplayName: userCache.DisplayName,
+		Picture:     &userCache.Picture,
 		Attachments: []Attachment{},
 	}
 
@@ -1116,12 +1117,12 @@ func (env *Handler) typing(w http.ResponseWriter, r *http.Request) {
 
 	switch action {
 	case "start":
-		userCache, err := UserCacheGetSet(env.db, userId)
+		userCache, err := cache.UserGetSet(env.db, userId)
 		if err != nil {
 			unexpectedErrorResponse(w, err)
 			return
 		}
-		displayName := userCache.displayName
+		displayName := userCache.DisplayName
 
 		// "1 987654321 displayname"
 		bufLength = bufLengthBase + 1 + len(displayName) // that 1 is space between id and display name

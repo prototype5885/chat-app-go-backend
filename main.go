@@ -79,11 +79,6 @@ func main() {
 		panic(err.Error())
 	}
 
-	err = SetupCache()
-	if err != nil {
-		panic(err.Error())
-	}
-
 	sm := NewSessionManager(idGen, db)
 
 	// this is used to inject dependencies into handlers
