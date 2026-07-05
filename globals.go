@@ -22,6 +22,7 @@ const (
 	EDIT_MESSAGE   = "edit_message"
 	DELETE_MESSAGE = "delete_message"
 	TYPING         = "typing"
+	USER_ONLINE    = "user_online"
 )
 
 var (

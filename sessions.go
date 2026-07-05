@@ -61,7 +61,7 @@ func (sm *SessionManager) NewSession(userId int64) (Session, int64) {
 	_, exists := sm.onlineUsers[userId]
 	if !exists {
 		sm.onlineUsers[userId] = struct{}{}
-		// TODO emit about online
+		go sm.EmitUserOlineChange(userId, true)
 	}
 	sm.mutex.Unlock()
 
@@ -104,7 +104,7 @@ func (sm *SessionManager) RemoveSession(sessionId int64) {
 
 	if len(sm.rooms[userId]) < 1 {
 		delete(sm.onlineUsers, userId)
-		// TODO emit about user going offline
+		go sm.EmitUserOlineChange(userId, false)
 	}
 
 	slog.Debug(fmt.Sprintf("Removed session %d of user ID %d", sessionId, userId))
@@ -220,4 +220,9 @@ func (sm *SessionManager) EmitToServerMembers(event string, data []byte, serverI
 		sm.emit(event, data, userIds[i])
 	}
 	sm.mutex.RUnlock()
+}
+
+func (sm *SessionManager) EmitUserOlineChange(userId int64, online bool) {
+	data := fmt.Appendf(nil, `{"id":%d,"online":%t}`, userId, online)
+	sm.EmitToServersUserIsIn(USER_ONLINE, data, userId)
 }
