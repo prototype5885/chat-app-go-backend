@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 const driverSqlite = 0
@@ -28,7 +28,7 @@ func initDatabase() (db *sql.DB, err error) {
 		if err != nil {
 			return
 		}
-		db, err = sql.Open("sqlite3", dbPath)
+		db, err = sql.Open("sqlite", dbPath)
 		if err != nil {
 			return
 		}
@@ -386,7 +386,9 @@ func getDatabaseDriver(db *sql.DB) int {
 	dbDriverStr := reflect.TypeOf(db.Driver()).String()
 
 	switch dbDriverStr {
-	case "*sqlite3.SQLiteDriver":
+	case "*sqlite3.SQLiteDriver": // CGO sqlite
+		return driverSqlite
+	case "*sqlite.Driver": // transpiled sqlite
 		return driverSqlite
 	case "*mysql.MySQLDriver":
 		return driverMysql
