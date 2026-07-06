@@ -9,7 +9,7 @@ import (
 
 type UserCache struct {
 	DisplayName string
-	Picture     string
+	Picture     *string
 }
 
 var userCache, _ = lru.New[int64, *UserCache](defaultCacheSize)

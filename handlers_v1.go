@@ -881,7 +881,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		ChannelId:   channelId,
 		Message:     message,
 		DisplayName: userCache.DisplayName,
-		Picture:     &userCache.Picture,
+		Picture:     userCache.Picture,
 		Attachments: []Attachment{},
 	}
 
