@@ -93,35 +93,54 @@ func main() {
 
 	router.Route("/api/v1", func(v1 chi.Router) {
 		v1.Get("/test", h.test)
+
 		v1.Post("/user/register", h.register)
 		v1.Post("/user/login", h.login)
-		v1.With(h.AuthUserMw).Get("/test_auth", h.testAuth)
-		v1.With(h.AuthUserMw).Get("/sse", h.session)
-		v1.With(h.AuthUserMw).Get("/session", h.session)
-		v1.With(h.AuthUserMw).Get("/user/logout", h.logout)
-		v1.With(h.AuthUserMw).Delete("/user/delete", h.delete)
-		v1.With(h.AuthUserMw).Get("/user_id", h.getUserID)
-		v1.With(h.AuthUserMw).Get("/user", h.getUserInfo)
-		v1.With(h.AuthUserMw, h.RateLimiter).Patch("/user", h.updateUserInfo)
-		v1.With(h.AuthUserMw, h.RateLimiter).Post("/user/upload/avatar", h.uploadUserAvatar)
-		v1.With(h.AuthUserMw, h.RateLimiter).Post("/server", h.createServer)
-		v1.With(h.AuthUserMw, h.HasServerAccessMw).Get("/server/{serverId}", h.getServerInfo)
-		v1.With(h.AuthUserMw, h.RateLimiter, h.IsServerOwnerMw).Patch("/server/{serverId}", h.updateServerInfo)
-		v1.With(h.AuthUserMw, h.RateLimiter, h.IsServerOwnerMw).Post("/server/{serverId}/upload/avatar", h.uploadServerAvatar)
-		v1.With(h.AuthUserMw).Get("/servers", h.getServers)
-		v1.With(h.AuthUserMw, h.RateLimiter, h.IsServerOwnerMw).Delete("/server/{serverId}", h.deleteServer)
-		v1.With(h.AuthUserMw, h.RateLimiter, h.IsServerOwnerMw).Post("/server/{serverId}/channel", h.createChannel)
-		v1.With(h.AuthUserMw, h.IsChannelOwnerMw).Get("/channel/{channelId}", h.getChannelInfo)
-		v1.With(h.AuthUserMw, h.RateLimiter, h.IsChannelOwnerMw).Patch("/channel/{channelId}", h.updateChannelInfo)
-		v1.With(h.AuthUserMw, h.AuthSessionIdMw, h.HasServerAccessMw).Get("/server/{serverId}/channels", h.getChannels)
-		v1.With(h.AuthUserMw, h.RateLimiter, h.IsChannelOwnerMw).Delete("/channel/{channelId}", h.deleteChannel)
-		v1.With(h.AuthUserMw, h.HasServerAccessMw).Get("/server/{serverId}/members", h.getMembers)
-		v1.With(h.AuthUserMw, h.RateLimiter, h.HasChannelAccessMw).Post("/channel/{channelId}/message", h.createMessage)
-		v1.With(h.AuthUserMw, h.RateLimiter).Patch("/channel/{channelId}/message/{messageId}", h.editMessage)
-		v1.With(h.AuthUserMw, h.RateLimiter).Delete("/channel/{channelId}/message/{messageId}", h.deleteMessage)
-		v1.With(h.AuthUserMw, h.AuthSessionIdMw, h.HasChannelAccessMw).Get("/channel/{channelId}/messages", h.getMessages)
-		v1.With(h.AuthUserMw, h.HasChannelAccessMw).Post("/channel/{channelId}/typing/{action}", h.typing)
+
+		// endpoints that require login
+		v1.With(h.AuthUserMw).Route("/", func(v1 chi.Router) {
+			v1.Get("/test_auth", h.testAuth)
+
+			// client requests at beginning
+			v1.Get("/session", h.session)
+			v1.Get("/user_id", h.getUserID)
+
+			// user
+			v1.Get("/user/logout", h.logout)
+			v1.Delete("/user/delete", h.delete)
+			v1.Get("/user", h.getUserInfo)
+			v1.With(h.RateLimiter).Patch("/user", h.updateUserInfo)
+			v1.With(h.RateLimiter).Post("/user/upload/avatar", h.uploadUserAvatar)
+
+			// servers
+			v1.With(h.RateLimiter).Post("/server", h.createServer)
+			v1.With(h.HasServerAccessMw).Get("/server/{serverId}", h.getServerInfo)
+			v1.With(h.RateLimiter, h.IsServerOwnerMw).Patch("/server/{serverId}", h.updateServerInfo)
+			v1.With(h.RateLimiter, h.IsServerOwnerMw).Post("/server/{serverId}/upload/avatar", h.uploadServerAvatar)
+			v1.Get("/servers", h.getServers)
+			v1.With(h.RateLimiter, h.IsServerOwnerMw).Delete("/server/{serverId}", h.deleteServer)
+
+			// channels
+			v1.With(h.RateLimiter, h.IsServerOwnerMw).Post("/server/{serverId}/channel", h.createChannel)
+			v1.With(h.IsChannelOwnerMw).Get("/channel/{channelId}", h.getChannelInfo)
+			v1.With(h.RateLimiter, h.IsChannelOwnerMw).Patch("/channel/{channelId}", h.updateChannelInfo)
+			v1.With(h.AuthSessionIdMw, h.HasServerAccessMw).Get("/server/{serverId}/channels", h.getChannels)
+			v1.With(h.RateLimiter, h.IsChannelOwnerMw).Delete("/channel/{channelId}", h.deleteChannel)
+
+			// server members
+			v1.With(h.HasServerAccessMw).Get("/server/{serverId}/members", h.getMembers)
+
+			// chat messages
+			v1.With(h.RateLimiter, h.HasChannelAccessMw).Post("/channel/{channelId}/message", h.createMessage)
+			v1.With(h.RateLimiter).Patch("/channel/{channelId}/message/{messageId}", h.editMessage)
+			v1.With(h.RateLimiter).Delete("/channel/{channelId}/message/{messageId}", h.deleteMessage)
+			v1.With(h.AuthSessionIdMw, h.HasChannelAccessMw).Get("/channel/{channelId}/messages", h.getMessages)
+
+			// chat typing
+			v1.With(h.HasChannelAccessMw).Post("/channel/{channelId}/typing/{action}", h.typing)
+		})
 	})
+
 	router.With(h.AuthUserMw).Get("/avatars/{fileName}", h.serveAvatars)
 	// get_attachment
 
