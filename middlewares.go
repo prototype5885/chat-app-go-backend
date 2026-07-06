@@ -8,7 +8,26 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/hashicorp/golang-lru/v2/expirable"
 )
+
+var userIdRateLimiterLru = expirable.NewLRU[int64, struct{}](0, nil, time.Millisecond*500)
+
+func (env *Handler) RateLimiter(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+
+		_, exists := userIdRateLimiterLru.Get(userId)
+		if exists {
+			http.Error(w, "", http.StatusTooManyRequests)
+			return
+		}
+
+		userIdRateLimiterLru.Add(userId, struct{}{})
+		next.ServeHTTP(w, r)
+	})
+}
 
 func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
