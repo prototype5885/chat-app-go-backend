@@ -13,8 +13,6 @@ import (
 	"syscall"
 
 	"github.com/bwmarrin/snowflake"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
 )
 
@@ -85,69 +83,70 @@ func main() {
 	h := Handler{db: db, idGen: idGen, sm: sm}
 
 	// setup http server
-	router := chi.NewRouter()
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/test", h.test)
+
+	mux.HandleFunc("POST /api/v1/user/register", h.register)
+	mux.HandleFunc("POST /api/v1/user/login", h.login)
+
+	// from now on endpoints require user to be logged in
+	mux.Handle("GET /api/v1/test_auth", h.AuthUserMw(http.HandlerFunc(h.testAuth)))
+
+	// client requests at beginning
+	mux.Handle("GET /api/v1/session", h.AuthUserMw(http.HandlerFunc(h.session)))
+	mux.Handle("GET /api/v1/user_id", h.AuthUserMw(http.HandlerFunc(h.getUserID)))
+
+	// user
+	mux.Handle("GET /api/v1/user/logout", h.AuthUserMw(http.HandlerFunc(h.logout)))
+	mux.Handle("DELETE /api/v1/user/delete", h.AuthUserMw(http.HandlerFunc(h.delete)))
+	mux.Handle("GET /api/v1/user", h.AuthUserMw(http.HandlerFunc(h.getUserInfo)))
+	mux.Handle("PATCH /api/v1/user", h.AuthUserMw(h.RateLimiter(http.HandlerFunc(h.updateUserInfo))))
+	mux.Handle("POST /api/v1/user/upload/avatar", h.AuthUserMw(h.RateLimiter(http.HandlerFunc(h.uploadUserAvatar))))
+
+	// servers
+	mux.Handle("POST /api/v1/server", h.AuthUserMw(h.RateLimiter(http.HandlerFunc(h.createServer))))
+	mux.Handle("GET /api/v1/server/{serverId}", h.AuthUserMw(h.HasServerAccessMw(http.HandlerFunc(h.getServerInfo))))
+	mux.Handle("PATCH /api/v1/server/{serverId}", h.AuthUserMw(h.RateLimiter(h.IsServerOwnerMw(http.HandlerFunc(h.updateServerInfo)))))
+	mux.Handle("POST /api/v1/server/{serverId}/upload/avatar", h.AuthUserMw(h.RateLimiter(h.IsServerOwnerMw(http.HandlerFunc(h.uploadServerAvatar)))))
+	mux.Handle("GET /api/v1/servers", h.AuthUserMw(http.HandlerFunc(h.getServers)))
+	mux.Handle("DELETE /api/v1/server/{serverId}", h.AuthUserMw(h.RateLimiter(h.IsServerOwnerMw(http.HandlerFunc(h.deleteServer)))))
+
+	// channels
+	mux.Handle("POST /api/v1/server/{serverId}/channel", h.AuthUserMw(h.RateLimiter(h.IsServerOwnerMw(http.HandlerFunc(h.createChannel)))))
+	mux.Handle("GET /api/v1/channel/{channelId}", h.AuthUserMw(h.IsChannelOwnerMw(http.HandlerFunc(h.getChannelInfo))))
+	mux.Handle("PATCH /api/v1/channel/{channelId}", h.AuthUserMw(h.RateLimiter(h.IsChannelOwnerMw(http.HandlerFunc(h.updateChannelInfo)))))
+	mux.Handle("GET /api/v1/server/{serverId}/channels", h.AuthUserMw(h.AuthSessionIdMw(h.HasServerAccessMw(http.HandlerFunc(h.getChannels)))))
+	mux.Handle("DELETE /api/v1/channel/{channelId}", h.AuthUserMw(h.RateLimiter(h.IsChannelOwnerMw(http.HandlerFunc(h.deleteChannel)))))
+
+	// server members
+	mux.Handle("GET /api/v1/server/{serverId}/members", h.AuthUserMw(h.HasServerAccessMw(http.HandlerFunc(h.getMembers))))
+
+	// chat messages
+	mux.Handle("POST /api/v1/channel/{channelId}/message", h.AuthUserMw(h.RateLimiter(h.HasChannelAccessMw(http.HandlerFunc(h.createMessage)))))
+	mux.Handle("PATCH /api/v1/channel/{channelId}/message/{messageId}", h.AuthUserMw(h.RateLimiter(http.HandlerFunc(h.editMessage))))
+	mux.Handle("DELETE /api/v1/channel/{channelId}/message/{messageId}", h.AuthUserMw(h.RateLimiter(http.HandlerFunc(h.deleteMessage))))
+	mux.Handle("GET /api/v1/channel/{channelId}/messages", h.AuthUserMw(h.AuthSessionIdMw(h.HasChannelAccessMw(http.HandlerFunc(h.getMessages)))))
+
+	// chat typing
+	mux.Handle("POST /api/v1/channel/{channelId}/typing/{action}", h.AuthUserMw(h.HasChannelAccessMw(http.HandlerFunc(h.typing))))
+
+	// file serving
+	mux.Handle("GET /avatars/{fileName}", h.AuthUserMw(http.HandlerFunc(h.serveAvatars)))
+
+	var handler http.Handler = mux
+
+	// logger middleware
 	if printRequests, _ := strconv.ParseBool(os.Getenv("PRINT_REQUESTS")); printRequests {
-		router.Use(middleware.Logger)
+		handler = LoggingMw(mux)
 	}
-	router.Use(middleware.Recoverer)
 
-	router.Route("/api/v1", func(v1 chi.Router) {
-		v1.Get("/test", h.test)
-
-		v1.Post("/user/register", h.register)
-		v1.Post("/user/login", h.login)
-
-		// endpoints that require login
-		v1.With(h.AuthUserMw).Route("/", func(v1 chi.Router) {
-			v1.Get("/test_auth", h.testAuth)
-
-			// client requests at beginning
-			v1.Get("/session", h.session)
-			v1.Get("/user_id", h.getUserID)
-
-			// user
-			v1.Get("/user/logout", h.logout)
-			v1.Delete("/user/delete", h.delete)
-			v1.Get("/user", h.getUserInfo)
-			v1.With(h.RateLimiter).Patch("/user", h.updateUserInfo)
-			v1.With(h.RateLimiter).Post("/user/upload/avatar", h.uploadUserAvatar)
-
-			// servers
-			v1.With(h.RateLimiter).Post("/server", h.createServer)
-			v1.With(h.HasServerAccessMw).Get("/server/{serverId}", h.getServerInfo)
-			v1.With(h.RateLimiter, h.IsServerOwnerMw).Patch("/server/{serverId}", h.updateServerInfo)
-			v1.With(h.RateLimiter, h.IsServerOwnerMw).Post("/server/{serverId}/upload/avatar", h.uploadServerAvatar)
-			v1.Get("/servers", h.getServers)
-			v1.With(h.RateLimiter, h.IsServerOwnerMw).Delete("/server/{serverId}", h.deleteServer)
-
-			// channels
-			v1.With(h.RateLimiter, h.IsServerOwnerMw).Post("/server/{serverId}/channel", h.createChannel)
-			v1.With(h.IsChannelOwnerMw).Get("/channel/{channelId}", h.getChannelInfo)
-			v1.With(h.RateLimiter, h.IsChannelOwnerMw).Patch("/channel/{channelId}", h.updateChannelInfo)
-			v1.With(h.AuthSessionIdMw, h.HasServerAccessMw).Get("/server/{serverId}/channels", h.getChannels)
-			v1.With(h.RateLimiter, h.IsChannelOwnerMw).Delete("/channel/{channelId}", h.deleteChannel)
-
-			// server members
-			v1.With(h.HasServerAccessMw).Get("/server/{serverId}/members", h.getMembers)
-
-			// chat messages
-			v1.With(h.RateLimiter, h.HasChannelAccessMw).Post("/channel/{channelId}/message", h.createMessage)
-			v1.With(h.RateLimiter).Patch("/channel/{channelId}/message/{messageId}", h.editMessage)
-			v1.With(h.RateLimiter).Delete("/channel/{channelId}/message/{messageId}", h.deleteMessage)
-			v1.With(h.AuthSessionIdMw, h.HasChannelAccessMw).Get("/channel/{channelId}/messages", h.getMessages)
-
-			// chat typing
-			v1.With(h.HasChannelAccessMw).Post("/channel/{channelId}/typing/{action}", h.typing)
-		})
-	})
-
-	router.With(h.AuthUserMw).Get("/avatars/{fileName}", h.serveAvatars)
-	// get_attachment
+	// panic recoverer middleware
+	handler = RecovererMw(handler)
 
 	hostAddress := fmt.Sprintf("%s:%s", address, port)
 	go func() {
 		slog.Info("Listening on " + hostAddress)
-		err = http.ListenAndServe(hostAddress, router)
+		err = http.ListenAndServe(hostAddress, handler)
 		if err != nil {
 			slog.Error(err.Error())
 			closeServer()
