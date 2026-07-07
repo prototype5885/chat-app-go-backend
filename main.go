@@ -137,7 +137,7 @@ func main() {
 
 	// logger middleware
 	if printRequests, _ := strconv.ParseBool(os.Getenv("PRINT_REQUESTS")); printRequests {
-		handler = Logging(mux)
+		handler = RequestPrinter(mux)
 	}
 
 	// panic recoverer middleware
