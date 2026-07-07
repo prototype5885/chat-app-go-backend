@@ -105,7 +105,7 @@ func main() {
 
 	// servers
 	mux.Handle("POST /api/v1/server", h.AuthUserMw(h.RateLimiter(http.HandlerFunc(h.createServer))))
-	mux.Handle("GET /api/v1/server/{serverId}", h.AuthUserMw(h.HasServerAccessMw(http.HandlerFunc(h.getServerInfo))))
+	mux.Handle("GET /api/v1/server/{serverId}", h.AuthUserMw(h.IsServerOwnerMw(http.HandlerFunc(h.getServerInfo))))
 	mux.Handle("PATCH /api/v1/server/{serverId}", h.AuthUserMw(h.RateLimiter(h.IsServerOwnerMw(http.HandlerFunc(h.updateServerInfo)))))
 	mux.Handle("POST /api/v1/server/{serverId}/upload/avatar", h.AuthUserMw(h.RateLimiter(h.IsServerOwnerMw(http.HandlerFunc(h.uploadServerAvatar)))))
 	mux.Handle("GET /api/v1/servers", h.AuthUserMw(http.HandlerFunc(h.getServers)))
