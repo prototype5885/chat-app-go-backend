@@ -31,7 +31,7 @@ func (env *Handler) RateLimiter(next http.Handler) http.Handler {
 	})
 }
 
-func LoggingMw(next http.Handler) http.Handler {
+func Logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		next.ServeHTTP(w, r)
@@ -39,7 +39,7 @@ func LoggingMw(next http.Handler) http.Handler {
 	})
 }
 
-func RecovererMw(next http.Handler) http.Handler {
+func Recoverer(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if recover() != nil {
@@ -51,7 +51,7 @@ func RecovererMw(next http.Handler) http.Handler {
 	})
 }
 
-func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
+func (env *Handler) AuthUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenCookie, err := r.Cookie("token")
 		if err != nil {
@@ -116,7 +116,7 @@ func (env *Handler) AuthUserMw(next http.Handler) http.Handler {
 	})
 }
 
-func (env *Handler) AuthSessionIdMw(next http.Handler) http.Handler {
+func (env *Handler) AuthSessionId(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
@@ -146,7 +146,7 @@ func (env *Handler) AuthSessionIdMw(next http.Handler) http.Handler {
 	})
 }
 
-func (env *Handler) IsServerOwnerMw(next http.Handler) http.Handler {
+func (env *Handler) IsServerOwner(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
@@ -185,7 +185,7 @@ func (env *Handler) IsServerOwnerMw(next http.Handler) http.Handler {
 	})
 }
 
-func (env *Handler) HasServerAccessMw(next http.Handler) http.Handler {
+func (env *Handler) HasServerAccess(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
@@ -230,7 +230,7 @@ func (env *Handler) HasServerAccessMw(next http.Handler) http.Handler {
 	})
 }
 
-func (env *Handler) IsChannelOwnerMw(next http.Handler) http.Handler {
+func (env *Handler) IsChannelOwner(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
@@ -274,7 +274,7 @@ func (env *Handler) IsChannelOwnerMw(next http.Handler) http.Handler {
 	})
 }
 
-func (env *Handler) HasChannelAccessMw(next http.Handler) http.Handler {
+func (env *Handler) HasChannelAccess(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
@@ -319,10 +319,3 @@ func (env *Handler) HasChannelAccessMw(next http.Handler) http.Handler {
 		next.ServeHTTP(w, rNew)
 	})
 }
-
-//func SetHeaderMw(next http.Handler) http.Handler {
-//	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-//		w.Header().Set("XDD", "lol")
-//		next.ServeHTTP(w, r)
-//	})
-//}
