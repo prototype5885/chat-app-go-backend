@@ -2,7 +2,7 @@ package main
 
 import (
 	"chatapp/internal/cache"
-	"chatapp/modules/validator"
+	"chatapp/internal/validator"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"

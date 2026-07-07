@@ -1,7 +1,7 @@
 package main
 
 import (
-	"chatapp/modules/validator"
+	"chatapp/internal/validator"
 	"database/sql"
 	"fmt"
 	"log/slog"
