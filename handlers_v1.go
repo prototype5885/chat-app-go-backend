@@ -1139,13 +1139,27 @@ func (env *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// grab attachments for messages that have attachments
-	for i := range messages {
-		if messages[i].AttachmentCount != nil && *messages[i].AttachmentCount > 0 {
-			messages[i].Attachments, err = getAttachmentsFromDatabase(env.db, messages[i].Id)
-			if err != nil {
-				unexpectedErrorResponse(w, err)
-				return
+	{
+		tx, err := env.db.Begin()
+		if err != nil {
+			unexpectedErrorResponse(w, err)
+			return
+		}
+		defer rollbackTx(tx)
+
+		for i := range messages {
+			if messages[i].AttachmentCount != nil && *messages[i].AttachmentCount > 0 {
+				messages[i].Attachments, err = getAttachmentsFromDatabase(tx, messages[i].Id)
+				if err != nil {
+					unexpectedErrorResponse(w, err)
+					return
+				}
 			}
+		}
+		err = tx.Commit()
+		if err != nil {
+			unexpectedErrorResponse(w, err)
+			return
 		}
 	}
 
