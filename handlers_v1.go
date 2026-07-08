@@ -836,8 +836,51 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO handle attachments
-	attachmentsCount := 0
+	var attachments []Attachment
+
+	if strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
+		// TODO make sure file isn't loaded fully into ram
+		err := r.ParseMultipartForm(1024 * 1024 * 1)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+			return
+		}
+
+		fileHeaders := r.MultipartForm.File["files"]
+
+		if len(fileHeaders) > 4 {
+			http.Error(w, "You can't upload more than 4 attachments in a message", http.StatusBadRequest)
+			return
+		}
+
+		for _, fh := range fileHeaders {
+			file, err := fh.Open()
+			if err != nil {
+				unexpectedErrorResponse(w, err)
+				return
+			}
+
+			defer func() {
+				err := file.Close()
+				if err != nil {
+					slog.Error(err.Error())
+				}
+			}()
+
+			fileName, err := saveAttachment(file, fh.Filename)
+			if err != nil {
+				unexpectedErrorResponse(w, err)
+				return
+			}
+
+			attachment := Attachment{
+				Name: fh.Filename,
+				File: fileName,
+			}
+
+			attachments = append(attachments, attachment)
+		}
+	}
 
 	messageId := env.idGen.Generate().Int64()
 
@@ -848,19 +891,28 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rollbackTx(tx)
 
-	{
+	{ // insert message
 		_, err := tx.Exec(`
 			INSERT INTO messages (id, sender_id, channel_id, message, attachment_count)
 			VALUES (?, ?, ?, ?, ?)`,
-			messageId, userId, channelId, message, attachmentsCount,
+			messageId, userId, channelId, message, len(attachments),
 		)
 		if err != nil {
 			unexpectedErrorResponse(w, err)
 			return
 		}
 	}
-	{
-		// TODO insert attachments
+	{ // insert attachments if there are any
+		if len(attachments) > 0 {
+			const q = "INSERT INTO attachments (message_id, channel_id, name, file) VALUES (?, ?, ?, ?)"
+			for _, attachment := range attachments {
+				_, err := tx.Exec(q, messageId, channelId, attachment.Name, attachment.File)
+				if err != nil {
+					unexpectedErrorResponse(w, err)
+					return
+				}
+			}
+		}
 	}
 
 	err = tx.Commit()
@@ -882,7 +934,7 @@ func (env *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 		Message:     message,
 		DisplayName: userCache.DisplayName,
 		Picture:     userCache.Picture,
-		Attachments: []Attachment{},
+		Attachments: attachments,
 	}
 
 	messageResponseJson, err := json.Marshal(messageResponse)
@@ -1223,4 +1275,21 @@ func (env *Handler) serveAvatars(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.ServeFile(w, r, resizedFilePath)
+}
+
+func (env *Handler) serveAttachments(w http.ResponseWriter, r *http.Request) {
+	fileName := r.PathValue("fileName")
+	if fileName == "" {
+		http.Error(w, "Missing filename parameter", http.StatusBadRequest)
+		return
+	}
+
+	re := regexp.MustCompile(`^[a-fA-F0-9]{64}\..+`)
+	if !re.MatchString(fileName) {
+		http.Error(w, "Invalid filename", http.StatusBadRequest)
+		return
+	}
+
+	filePath := filepath.Join(getAttachmentFolder(fileName), fileName)
+	http.ServeFile(w, r, filePath)
 }
