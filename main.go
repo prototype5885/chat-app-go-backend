@@ -132,6 +132,8 @@ func main() {
 
 	// file serving
 	mux.Handle("GET /avatars/{fileName}", h.AuthUser(http.HandlerFunc(h.serveAvatars)))
+	mux.Handle("/svelte/", http.StripPrefix("/svelte/", http.FileServer(http.Dir("public/svelte/dist"))))
+	mux.Handle("/flutter/", http.StripPrefix("/flutter/", http.FileServer(http.Dir("public/flutter/web"))))
 
 	var handler http.Handler = mux
 
