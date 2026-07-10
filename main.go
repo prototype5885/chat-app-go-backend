@@ -27,7 +27,7 @@ func main() {
 
 	address := os.Getenv("ADDRESS")
 	if address == "" {
-		address = "127.0.0.1"
+		address = "localhost"
 	}
 
 	port := os.Getenv("PORT")
@@ -145,6 +145,13 @@ func main() {
 
 	// panic recoverer middleware
 	handler = Recoverer(handler)
+
+	// cors
+	corsOrigin := os.Getenv("CORS_ORIGIN")
+	if corsOrigin != "" {
+		slog.Info("CORS enabled for origin: " + corsOrigin)
+		handler = Cors(handler, corsOrigin)
+	}
 
 	hostAddress := fmt.Sprintf("%s:%s", address, port)
 	go func() {
