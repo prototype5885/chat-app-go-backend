@@ -10,6 +10,7 @@ type ServerIdKeyType struct{}
 type ChannelIdKeyType struct{}
 
 const (
+	USER_ID        = "user_id"
 	SESSION_ID     = "session_id"
 	SELF_USER_INFO = "self_user_info"
 	USER_INFO      = "user_info"

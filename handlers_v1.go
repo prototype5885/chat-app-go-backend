@@ -48,14 +48,25 @@ func (env *Handler) session(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	// send initial session id
-	msg := encodeServerSentEvent(SESSION_ID, []byte(strconv.FormatInt(sessionId, 10)))
-	_, err := w.Write(msg)
-	if err != nil {
-		slog.Warn(err.Error())
-		return
+	// send initial user and session id
+	{
+		msg := encodeServerSentEvent(USER_ID, []byte(strconv.FormatInt(userId, 10)))
+		_, err := w.Write(msg)
+		if err != nil {
+			slog.Warn(err.Error())
+			return
+		}
+		flusher.Flush()
 	}
-	flusher.Flush()
+	{
+		msg := encodeServerSentEvent(SESSION_ID, []byte(strconv.FormatInt(sessionId, 10)))
+		_, err := w.Write(msg)
+		if err != nil {
+			slog.Warn(err.Error())
+			return
+		}
+		flusher.Flush()
+	}
 
 	for {
 		select {
