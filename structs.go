@@ -85,5 +85,5 @@ type MessageResponse struct {
 	Edited          *int64       `json:"edited,omitempty"`
 	DisplayName     string       `json:"display_name"`
 	Picture         *string      `json:"picture,omitempty"`
-	Attachments     []Attachment `json:"attachments"`
+	Attachments     []Attachment `json:"attachments,omitempty"`
 }
