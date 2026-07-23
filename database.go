@@ -170,6 +170,55 @@ func initDatabase() (db *sql.DB, err error) {
 		return
 	}
 
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS friendships (
+			user_id_source BIGINT NOT NULL,
+			user_id_target BIGINT NOT NULL,
+			friends_since BIGINT,
+			unique (user_id_source, user_id_target),
+			FOREIGN KEY (user_id_source) REFERENCES users (id) ON DELETE CASCADE,
+			FOREIGN KEY (user_id_target) REFERENCES users (id) ON DELETE CASCADE
+		);
+	`)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func getFriendsFromDatabase(db *sql.DB, sm *SessionManager, userId int64) (friends []UserResponse, err error) {
+	var rows *sql.Rows
+
+	const q = `
+		SELECT u.id, u.username, u.display_name, u.picture, u.custom_status
+		FROM friendships f JOIN users u ON f.user_id_target = u.id
+		WHERE f.user_id_source = ?
+	`
+
+	rows, err = db.Query(q, userId)
+	if err != nil {
+		return
+	}
+	defer closeRows(rows)
+
+	friends = make([]UserResponse, 0, 64)
+
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+
+	for rows.Next() {
+		var u UserResponse
+		err = rows.Scan(&u.Id, &u.Username, &u.DisplayName, &u.Picture, &u.CustomStatus)
+		if err != nil {
+			return
+		}
+
+		_, u.Online = sm.onlineUsers[u.Id]
+
+		friends = append(friends, u)
+	}
+	err = rows.Err()
 	return
 }
 

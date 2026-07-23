@@ -386,6 +386,18 @@ func (env *Handler) uploadUserAvatar(w http.ResponseWriter, r *http.Request) {
 	textResponse(w, fileName, http.StatusOK)
 }
 
+func (env *Handler) getFriends(w http.ResponseWriter, r *http.Request) {
+	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
+
+	friends, err := getFriendsFromDatabase(env.db, env.sm, userId)
+	if err != nil {
+		unexpectedErrorResponse(w, err)
+		return
+	}
+
+	jsonResponseStruct(w, friends, http.StatusOK)
+}
+
 func (env *Handler) createServer(w http.ResponseWriter, r *http.Request) {
 	userId := env.mustGetIdFromServerContext(r, UserIdKeyType{})
 
